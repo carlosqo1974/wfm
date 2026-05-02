@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Calculadora Erlang — WFM{% endblock %}
+{% block page_title %}Calculadora Erlang C / Troncales{% endblock %}
+
+{% block content %}
+<div class="grid grid-2" style="gap:20px; align-items:start;">
+
+  <!-- Inbound / Erlang C -->
+  <div class="card">
+    <div class="card-header">Erlang C — Dimensionamiento Inbound</div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Llamadas en el intervalo</label>
+          <input type="number" id="ec-calls" value="100" min="1" step="1">
+        </div>
+        <div class="form-group">
+          <label>AHT (segundos)</label>
+          <input type="number" id="ec-aht" value="180" min="10" max="3600">
+        </div>
+        <div class="form-group">
+          <label>Intervalo</label>
+          <select id="ec-interval">
+            <option value="900">15 min</option>
+            <option value="1800" selected>30 min</option>
+            <option value="3600">60 min</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nivel de Servicio (%)</label>
+          <input type="number" id="ec-sl" value="80" min="50" max="99">
+        </div>
+        <div class="form-group">
+          <label>Responder en (seg)</label>
+          <input type="number" id="ec-target" value="20" min="1" max="120">
+        </div>
+        <div class="form-group">
+          <label>Ocupación máx. (%)</label>
+          <input type="number" id="ec-occ" value="85" min="50" max="98">
+        </div>
+        <div class="form-group">
+          <label>Shrinkage (%)</label>
+          <input type="number" id="ec-shrink" value="30" min="0" max="60">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="calcErlang()">Calcular</button>
+      <div id="erlang-result" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <!-- Trunk / Erlang B -->
+  <div>
+    <div class="card">
+      <div class="card-header" style="background:var(--blue2);">Erlang B — Dimensionamiento de Troncales</div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tráfico (Erlangs)</label>
+            <input type="number" id="eb-traffic" value="10" min="0.1" step="0.1">
+            <div class="help-text">A = llamadas/hora × (AHT/3600)</div>
+          </div>
+          <div class="form-group">
+            <label>Bloqueo máximo (%)</label>
+            <input type="number" id="eb-blocking" value="2" min="0.1" max="20" step="0.1">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="calcTrunks()">Calcular troncales</button>
+        <div id="trunk-result" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="background:var(--blue2);">Convertidor de Tráfico</div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Llamadas/hora</label>
+            <input type="number" id="conv-calls" value="200" oninput="convertTraffic()">
+          </div>
+          <div class="form-group">
+            <label>AHT (segundos)</label>
+            <input type="number" id="conv-aht" value="180" oninput="convertTraffic()">
+          </div>
+        </div>
+        <div id="conv-result" style="font-size:14px; color:var(--blue); margin-top:4px;"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="background:#375623; color:#fff;">Fórmulas de Referencia</div>
+      <div class="card-body" style="font-size:12px;">
+        <p style="margin-bottom:8px;"><b>Intensidad de tráfico (Erlangs):</b><br>
+        A = λ × h &nbsp;(λ=tasa llegada por segundo, h=AHT seg)</p>
+        <p style="margin-bottom:8px;"><b>Erlang C:</b><br>
+        C(N,A) = (A<sup>N</sup>/N! × N/(N−A)) / (Σ<sub>k=0</sub><sup>N-1</sup> A<sup>k</sup>/k! + A<sup>N</sup>/N! × N/(N−A))</p>
+        <p style="margin-bottom:8px;"><b>Nivel de Servicio:</b><br>
+        NS = 1 − C(N,A) × e<sup>−(N−A)·t/AHT</sup></p>
+        <p style="margin-bottom:8px;"><b>ASA (Average Speed of Answer):</b><br>
+        ASA = C(N,A) × AHT / (N−A)</p>
+        <p><b>Ocupación:</b><br>
+        ρ = A/N (máx recomendado: 85%)</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function calcErlang() {
+  const body = {
+    mode: 'inbound',
+    calls: document.getElementById('ec-calls').value,
+    aht: document.getElementById('ec-aht').value,
+    interval: document.getElementById('ec-interval').value,
+    target_sl: document.getElementById('ec-sl').value,
+    target_seconds: document.getElementById('ec-target').value,
+    max_occupancy: document.getElementById('ec-occ').value,
+    shrinkage: document.getElementById('ec-shrink').value,
+  };
+  const r = await fetch('/api/erlang', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const d = await r.json();
+
+  const slColor = d.service_level >= 0.80 ? '#375623' : d.service_level >= 0.70 ? '#7F4F00' : '#9C0006';
+  const occColor = d.occupancy <= 0.85 ? '#375623' : d.occupancy <= 0.90 ? '#7F4F00' : '#9C0006';
+
+  document.getElementById('erlang-result').innerHTML = `
+    <div class="grid grid-2" style="gap:10px;">
+      <div class="kpi"><div class="kpi-label">Intensidad tráfico</div><div class="kpi-value">${d.traffic_intensity} Erl</div></div>
+      <div class="kpi"><div class="kpi-label">Agentes Productivos</div><div class="kpi-value" style="color:var(--blue2)">${d.productive_agents}</div></div>
+      <div class="kpi"><div class="kpi-label">Agentes Brutos (con shrinkage)</div><div class="kpi-value" style="color:var(--blue)">${d.gross_agents}</div></div>
+      <div class="kpi"><div class="kpi-label">Nivel de Servicio</div><div class="kpi-value" style="color:${slColor}">${((d.service_level||0)*100).toFixed(2)}%</div></div>
+      <div class="kpi"><div class="kpi-label">ASA</div><div class="kpi-value">${d.asa_seconds}s</div></div>
+      <div class="kpi"><div class="kpi-label">Ocupación</div><div class="kpi-value" style="color:${occColor}">${((d.occupancy||0)*100).toFixed(1)}%</div></div>
+    </div>
+  `;
+}
+
+async function calcTrunks() {
+  const body = { mode: 'trunks', traffic: document.getElementById('eb-traffic').value, blocking: document.getElementById('eb-blocking').value };
+  const r = await fetch('/api/erlang', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const d = await r.json();
+  document.getElementById('trunk-result').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Troncales necesarias</div>
+    <div class="kpi-value" style="color:var(--blue2)">${d.trunks}</div>
+    <div class="kpi-sub">Para ${d.traffic} Erl con bloqueo ≤ ${(d.blocking_target*100).toFixed(1)}%</div></div>
+  `;
+}
+
+function convertTraffic() {
+  const calls = parseFloat(document.getElementById('conv-calls').value) || 0;
+  const aht = parseFloat(document.getElementById('conv-aht').value) || 0;
+  const erlangs = (calls / 3600) * aht;
+  document.getElementById('conv-result').textContent = `Tráfico: ${erlangs.toFixed(3)} Erlangs`;
+}
+convertTraffic();
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — WFM{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid grid-3" style="margin-bottom:24px;">
+  <div class="kpi">
+    <div class="kpi-label">Campañas Entrantes</div>
+    <div class="kpi-value" style="color:var(--blue2)">{{ stats.inbound }}</div>
+    <div class="kpi-sub">Voz inbound activas</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Campañas Salientes</div>
+    <div class="kpi-value" style="color:var(--orange)">{{ stats.outbound }}</div>
+    <div class="kpi-sub">Outbound / marcación</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Campañas Chat</div>
+    <div class="kpi-value" style="color:#1E7B1E">{{ stats.chat }}</div>
+    <div class="kpi-sub">Chat / mensajería</div>
+  </div>
+</div>
+
+{% if campaigns %}
+<div class="card">
+  <div class="card-header">
+    Campañas Activas
+    <a href="/campaigns/new" class="btn btn-sm" style="background:rgba(255,255,255,.2); color:#fff;">+ Nueva</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Campaña</th>
+          <th>Tipo</th>
+          <th>AHT (seg)</th>
+          <th>Intervalo</th>
+          <th>NS objetivo</th>
+          <th>Shrinkage</th>
+          <th>Creada</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in campaigns %}
+        <tr class="{% if loop.index % 2 == 0 %}row-alt{% endif %}">
+          <td style="text-align:left; font-weight:500;">
+            <a href="/campaigns/{{ c.id }}" style="color:var(--blue2); text-decoration:none;">{{ c.name }}</a>
+          </td>
+          <td>
+            <span class="type-badge type-{{ c.campaign_type }}">
+              {% if c.campaign_type == 'inbound' %}📞 Entrante
+              {% elif c.campaign_type == 'outbound' %}📤 Saliente
+              {% else %}💬 Chat{% endif %}
+            </span>
+          </td>
+          <td>{{ c.aht_seconds | int }}s</td>
+          <td>{{ c.interval_minutes }}min</td>
+          <td>
+            {% if c.campaign_type == 'outbound' %}
+              Ocu {{ (c.occupancy_target * 100) | int }}%
+            {% else %}
+              {{ (c.target_sl * 100) | int }}% / {{ c.target_seconds | int }}s
+            {% endif %}
+          </td>
+          <td>{{ (c.shrinkage * 100) | int }}%</td>
+          <td style="font-size:12px; color:#888;">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+          <td>
+            <a href="/campaigns/{{ c.id }}" class="btn btn-outline btn-sm">Ver</a>
+            <a href="/campaigns/{{ c.id }}/edit" class="btn btn-sm" style="background:var(--gray2); color:var(--blue);">Editar</a>
+            <form method="POST" action="/campaigns/{{ c.id }}/delete" style="display:inline;"
+                  onsubmit="return confirm('¿Eliminar campaña «{{ c.name }}»? Esta acción no se puede deshacer.')">
+              <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body" style="text-align:center; padding:48px;">
+    <div style="font-size:48px; margin-bottom:16px;">📊</div>
+    <h3 style="color:var(--blue); margin-bottom:8px;">Sin campañas aún</h3>
+    <p style="color:#888; margin-bottom:20px;">Crea tu primera campaña para comenzar el dimensionamiento.</p>
+    <a href="/campaigns/new" class="btn btn-primary">+ Crear primera campaña</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick reference -->
+<div class="card" style="margin-top:24px;">
+  <div class="card-header" style="background:var(--blue2);">Guía rápida — Fórmulas y métricas clave</div>
+  <div class="card-body">
+    <div class="grid grid-3">
+      <div>
+        <b style="color:var(--blue);">Erlang C — Inbound</b>
+        <p style="font-size:12px; color:#555; margin-top:6px;">Calcula probabilidad de espera y agentes necesarios para cumplir el Nivel de Servicio (NS). NS estándar: <b>80% de llamadas en 20 seg</b>.</p>
+      </div>
+      <div>
+        <b style="color:var(--orange);">Outbound — Productividad</b>
+        <p style="font-size:12px; color:#555; margin-top:6px;">Basado en tasa de contacto, persona correcta y AHT. Cumplimiento <b>máximo 3% abandono</b> (norma FCC/regulatoria).</p>
+      </div>
+      <div>
+        <b style="color:#1E7B1E;">Chat — Concurrencia</b>
+        <p style="font-size:12px; color:#555; margin-top:6px;">Erlang C modificado con sesiones simultáneas. Concurrencia óptima: <b>2–3 chats/agente</b>. Ocupación recomendada: <b>≤ 80%</b>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
