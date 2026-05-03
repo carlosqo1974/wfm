@@ -1,165 +1,211 @@
 {% extends "base.html" %}
 {% block title %}{% if edit %}Editar{% else %}Nueva{% endif %} Campaña — WFM{% endblock %}
-{% block page_title %}{% if edit %}Editar{% else %}Nueva{% endif %} Campaña{% endblock %}
 
 {% block content %}
-<form method="POST" id="campaign-form">
-<div class="grid grid-2" style="gap:20px; align-items:start;">
+<h2 class="text-xl font-bold text-slate-800 mb-6">
+  {% if edit %}Editar campaña — {{ campaign.name }}{% else %}Nueva campaña{% endif %}
+</h2>
 
-  <!-- Left: Basic info + type selector -->
-  <div>
-    <div class="card">
-      <div class="card-header">Información General</div>
-      <div class="card-body">
-        <div class="form-group">
-          <label>Nombre de la campaña *</label>
-          <input type="text" name="name" value="{{ campaign.name if campaign else '' }}" required placeholder="Ej: Soporte Técnico Tier 1">
+<form method="POST">
+<div class="grid md:grid-cols-2 gap-6 items-start">
+
+  <!-- Izquierda -->
+  <div class="space-y-5">
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-700">Información general</h3>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+          <input type="text" name="name" required placeholder="Ej: Soporte Técnico Tier 1"
+                 value="{{ campaign.name if campaign else '' }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
         </div>
-        <div class="form-group">
-          <label>Descripción</label>
-          <textarea name="description" rows="2" placeholder="Descripción opcional">{{ campaign.description if campaign else '' }}</textarea>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Descripción</label>
+          <textarea name="description" rows="2" placeholder="Descripción opcional"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition resize-none">{{ campaign.description if campaign else '' }}</textarea>
         </div>
-        <div class="form-group">
-          <label>Tipo de campaña</label>
-          <select name="campaign_type" id="type-select" {% if edit %}disabled{% endif %} onchange="showType(this.value)">
-            <option value="inbound"  {% if campaign and campaign.campaign_type=='inbound'  %}selected{% endif %}>📞 Entrante (Inbound)</option>
-            <option value="outbound" {% if campaign and campaign.campaign_type=='outbound' %}selected{% endif %}>📤 Saliente (Outbound)</option>
-            <option value="chat"     {% if campaign and campaign.campaign_type=='chat'     %}selected{% endif %}>💬 Chat / Mensajería</option>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de campaña</label>
+          <select name="campaign_type" id="type-select"
+                  {% if edit %}disabled{% endif %}
+                  onchange="showType(this.value)"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white">
+            <option value="inbound"  {% if campaign and campaign.campaign_type=='inbound'  %}selected{% endif %}>Entrante (Inbound)</option>
+            <option value="outbound" {% if campaign and campaign.campaign_type=='outbound' %}selected{% endif %}>Saliente (Outbound)</option>
+            <option value="chat"     {% if campaign and campaign.campaign_type=='chat'     %}selected{% endif %}>Chat / Mensajería</option>
           </select>
+          {% if edit %}<input type="hidden" name="campaign_type" value="{{ campaign.campaign_type }}">{% endif %}
         </div>
-        {% if edit %}<input type="hidden" name="campaign_type" value="{{ campaign.campaign_type }}">{% endif %}
       </div>
     </div>
 
-    <!-- Common parameters -->
-    <div class="card">
-      <div class="card-header">Parámetros Comunes</div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="form-group">
-            <label>AHT — Tiempo Medio Operación (seg)</label>
-            <input type="number" name="aht_seconds" value="{{ campaign.aht_seconds | int if campaign else 180 }}" min="10" max="3600" required>
-            <div class="help-text">Tiempo de habla + espera + wrap-up</div>
-          </div>
-          <div class="form-group">
-            <label>Shrinkage (%)</label>
-            <input type="number" name="shrinkage" value="{{ (campaign.shrinkage * 100) | int if campaign else 30 }}" min="0" max="60" step="1">
-            <div class="help-text">Ausentismo + breaks + capacitación</div>
-          </div>
-          <div class="form-group">
-            <label>Intervalo (min)</label>
-            <select name="interval_minutes">
-              {% for m in [15, 30, 60] %}
-              <option value="{{ m }}" {% if campaign and campaign.interval_minutes == m %}selected{% elif not campaign and m==30 %}selected{% endif %}>{{ m }} min</option>
-              {% endfor %}
-            </select>
-          </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-700">Parámetros comunes</h3>
+      </div>
+      <div class="p-5 grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">AHT (seg)</label>
+          <input type="number" name="aht_seconds" min="10" max="3600" required
+                 value="{{ campaign.aht_seconds | int if campaign else 180 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Habla+hold+wrap</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Shrinkage (%)</label>
+          <input type="number" name="shrinkage" min="0" max="60" step="1"
+                 value="{{ (campaign.shrinkage * 100) | int if campaign else 30 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Ausencias+breaks</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Intervalo</label>
+          <select name="interval_minutes"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white">
+            {% for m in [15, 30, 60] %}
+            <option value="{{ m }}" {% if campaign and campaign.interval_minutes==m %}selected{% elif not campaign and m==30 %}selected{% endif %}>{{ m }} min</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Right: Type-specific params -->
-  <div>
+  <!-- Derecha: parámetros por tipo -->
+  <div class="space-y-5">
+
     <!-- INBOUND -->
-    <div id="params-inbound" class="type-params card">
-      <div class="card-header">Parámetros — Campaña Entrante</div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Nivel de Servicio objetivo (%)</label>
-            <input type="number" name="target_sl" value="{{ (campaign.target_sl * 100) | int if campaign else 80 }}" min="50" max="99" step="1">
-            <div class="help-text">Estándar industria: 80%</div>
-          </div>
-          <div class="form-group">
-            <label>Responder en (seg)</label>
-            <input type="number" name="target_seconds" value="{{ campaign.target_seconds | int if campaign else 20 }}" min="1" max="120">
-            <div class="help-text">Estándar: 20 seg</div>
-          </div>
-          <div class="form-group">
-            <label>Ocupación máxima (%)</label>
-            <input type="number" name="max_occupancy" value="{{ (campaign.max_occupancy * 100) | int if campaign else 85 }}" min="50" max="98" step="1">
-            <div class="help-text">Máx recomendado: 85%</div>
-          </div>
+    <div id="params-inbound" class="type-params bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-700">Parámetros inbound</h3>
+      </div>
+      <div class="p-5 grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Nivel Servicio (%)</label>
+          <input type="number" name="target_sl" min="50" max="99" step="1"
+                 value="{{ (campaign.target_sl * 100) | int if campaign else 80 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Estándar: 80%</p>
         </div>
-        <div class="alert alert-info" style="margin-top:8px;">
-          <b>Fórmula Erlang C:</b> NS = 1 − P(espera) × e<sup>−(N−A)·t/AHT</sup> &nbsp;|&nbsp; A = λ × AHT (Erlangs)
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Responder en (seg)</label>
+          <input type="number" name="target_seconds" min="1" max="120"
+                 value="{{ campaign.target_seconds | int if campaign else 20 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Estándar: 20 seg</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Ocupación máx. (%)</label>
+          <input type="number" name="max_occupancy" min="50" max="98" step="1"
+                 value="{{ (campaign.max_occupancy * 100) | int if campaign else 85 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Máx rec.: 85%</p>
+        </div>
+      </div>
+      <div class="px-5 pb-5">
+        <div class="bg-indigo-50 rounded-lg px-4 py-3 text-xs text-indigo-700 font-mono">
+          NS = 1 − C(N,A) × e<sup>−(N−A)·t/AHT</sup>
         </div>
       </div>
     </div>
 
     <!-- OUTBOUND -->
-    <div id="params-outbound" class="type-params card" style="display:none;">
-      <div class="card-header orange">Parámetros — Campaña Saliente</div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Registros a contactar</label>
-            <input type="number" name="records_to_contact" value="{{ campaign.records_to_contact if campaign else 1000 }}" min="1">
-          </div>
-          <div class="form-group">
-            <label>Tasa de Contacto (%)</label>
-            <input type="number" name="contact_rate" value="{{ (campaign.contact_rate * 100) | int if campaign else 35 }}" min="1" max="100">
-            <div class="help-text">% llamadas que contestan</div>
-          </div>
-          <div class="form-group">
-            <label>Tasa Persona Correcta (%)</label>
-            <input type="number" name="right_party_rate" value="{{ (campaign.right_party_rate * 100) | int if campaign else 70 }}" min="1" max="100">
-          </div>
-          <div class="form-group">
-            <label>Modo de marcación</label>
-            <select name="dial_mode">
-              {% for mode, label in [('predictive','Predictivo'),('progressive','Progresivo'),('preview','Preview'),('power','Power')] %}
-              <option value="{{ mode }}" {% if campaign and campaign.dial_mode == mode %}selected{% elif not campaign and mode=='progressive' %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Horas disponibles campaña</label>
-            <input type="number" name="available_hours" value="{{ campaign.available_hours | int if campaign else 8 }}" min="1" max="24" step="0.5">
-          </div>
-          <div class="form-group">
-            <label>Ocupación objetivo (%)</label>
-            <input type="number" name="occupancy_target" value="{{ (campaign.occupancy_target * 100) | int if campaign else 80 }}" min="40" max="95">
-          </div>
+    <div id="params-outbound" class="type-params bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden" style="display:none">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-700">Parámetros outbound</h3>
+      </div>
+      <div class="p-5 grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Registros a contactar</label>
+          <input type="number" name="records_to_contact" min="1"
+                 value="{{ campaign.records_to_contact if campaign else 1000 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
         </div>
-        <div class="alert alert-warn" style="margin-top:8px;">
-          <b>Norma:</b> Abandono máximo 3% (modo predictivo). Modo progresivo no genera abandono.
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tasa de contacto (%)</label>
+          <input type="number" name="contact_rate" min="1" max="100"
+                 value="{{ (campaign.contact_rate * 100) | int if campaign else 35 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tasa persona correcta (%)</label>
+          <input type="number" name="right_party_rate" min="1" max="100"
+                 value="{{ (campaign.right_party_rate * 100) | int if campaign else 70 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Modo de marcación</label>
+          <select name="dial_mode"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white">
+            {% for mode, lbl in [('predictive','Predictivo'),('progressive','Progresivo'),('preview','Preview'),('power','Power')] %}
+            <option value="{{ mode }}" {% if campaign and campaign.dial_mode==mode %}selected{% elif not campaign and mode=='progressive' %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Horas disponibles</label>
+          <input type="number" name="available_hours" min="1" max="24" step="0.5"
+                 value="{{ campaign.available_hours | int if campaign else 8 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Ocupación objetivo (%)</label>
+          <input type="number" name="occupancy_target" min="40" max="95"
+                 value="{{ (campaign.occupancy_target * 100) | int if campaign else 80 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+        </div>
+      </div>
+      <div class="px-5 pb-5">
+        <div class="bg-orange-50 rounded-lg px-4 py-3 text-xs text-orange-700">
+          Abandono máximo 3% en modo predictivo.
         </div>
       </div>
     </div>
 
     <!-- CHAT -->
-    <div id="params-chat" class="type-params card" style="display:none;">
-      <div class="card-header green">Parámetros — Campaña Chat</div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Concurrencia máx. (chats/agente)</label>
-            <input type="number" name="max_concurrency" value="{{ campaign.max_concurrency if campaign else 2.0 }}" min="1" max="10" step="0.5">
-            <div class="help-text">Óptimo: 2–3 para calidad</div>
-          </div>
-          <div class="form-group">
-            <label>Tiempo de respuesta objetivo (seg)</label>
-            <input type="number" name="target_response_seconds" value="{{ campaign.target_response_seconds | int if campaign else 30 }}" min="5" max="300">
-            <div class="help-text">Primer mensaje de respuesta</div>
-          </div>
-          <div class="form-group">
-            <label>Meta respuesta a tiempo (%)</label>
-            <input type="number" name="target_response_rate" value="{{ (campaign.target_response_rate * 100) | int if campaign else 80 }}" min="50" max="99">
-          </div>
-          <div class="form-group">
-            <label>Ocupación máxima (%)</label>
-            <input type="number" name="max_occupancy" value="{{ (campaign.max_occupancy * 100) | int if campaign else 80 }}" min="40" max="95">
-            <div class="help-text">Recomendado chat: 80%</div>
-          </div>
+    <div id="params-chat" class="type-params bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden" style="display:none">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-700">Parámetros chat</h3>
+      </div>
+      <div class="p-5 grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Concurrencia máx. (chats/agente)</label>
+          <input type="number" name="max_concurrency" min="1" max="10" step="0.5"
+                 value="{{ campaign.max_concurrency if campaign else 2.0 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Óptimo: 2–3</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tiempo respuesta obj. (seg)</label>
+          <input type="number" name="target_response_seconds" min="5" max="300"
+                 value="{{ campaign.target_response_seconds | int if campaign else 30 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Meta respuesta a tiempo (%)</label>
+          <input type="number" name="target_response_rate" min="50" max="99"
+                 value="{{ (campaign.target_response_rate * 100) | int if campaign else 80 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Ocupación máx. (%)</label>
+          <input type="number" name="max_occupancy" min="40" max="95"
+                 value="{{ (campaign.max_occupancy * 100) | int if campaign else 80 }}"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition">
+          <p class="text-xs text-slate-400 mt-1">Rec. chat: 80%</p>
         </div>
       </div>
     </div>
 
-    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:8px;">
-      <a href="/" class="btn btn-outline">Cancelar</a>
-      <button type="submit" class="btn btn-primary">
+    <!-- Botones -->
+    <div class="flex items-center justify-end gap-3">
+      <a href="/" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">Cancelar</a>
+      <button type="submit"
+              class="px-5 py-2 bg-brand hover:bg-brand-dark text-white text-sm font-medium rounded-lg transition-colors">
         {% if edit %}Guardar cambios{% else %}Crear campaña{% endif %}
       </button>
     </div>
@@ -169,13 +215,11 @@
 </form>
 
 <script>
-function showType(type) {
-  document.querySelectorAll('.type-params').forEach(el => el.style.display = 'none');
-  const el = document.getElementById('params-' + type);
-  if(el) el.style.display = 'block';
+function showType(t) {
+  document.querySelectorAll('.type-params').forEach(e => e.style.display='none');
+  const el = document.getElementById('params-'+t);
+  if(el) el.style.display='block';
 }
-
-// Init on load
 const sel = document.getElementById('type-select');
 if(sel) showType(sel.value);
 </script>

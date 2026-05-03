@@ -1,77 +1,89 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — WFM{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block title %}Dashboard — WFM COAM{% endblock %}
 
 {% block content %}
-<div class="grid grid-3" style="margin-bottom:24px;">
-  <div class="kpi">
-    <div class="kpi-label">Campañas Entrantes</div>
-    <div class="kpi-value" style="color:var(--blue2)">{{ stats.inbound }}</div>
-    <div class="kpi-sub">Voz inbound activas</div>
+<h2 class="text-xl font-bold text-slate-800 mb-6">Dashboard</h2>
+
+<!-- KPI row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Campañas totales</p>
+    <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.inbound + stats.outbound + stats.chat }}</p>
   </div>
-  <div class="kpi">
-    <div class="kpi-label">Campañas Salientes</div>
-    <div class="kpi-value" style="color:var(--orange)">{{ stats.outbound }}</div>
-    <div class="kpi-sub">Outbound / marcación</div>
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Entrantes</p>
+    <p class="text-3xl font-bold text-brand mt-1">{{ stats.inbound }}</p>
+    <p class="text-xs text-slate-400 mt-0.5">Voz inbound</p>
   </div>
-  <div class="kpi">
-    <div class="kpi-label">Campañas Chat</div>
-    <div class="kpi-value" style="color:#1E7B1E">{{ stats.chat }}</div>
-    <div class="kpi-sub">Chat / mensajería</div>
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Salientes</p>
+    <p class="text-3xl font-bold text-orange-500 mt-1">{{ stats.outbound }}</p>
+    <p class="text-xs text-slate-400 mt-0.5">Outbound / marcación</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Chat</p>
+    <p class="text-3xl font-bold text-emerald-600 mt-1">{{ stats.chat }}</p>
+    <p class="text-xs text-slate-400 mt-0.5">Chat / mensajería</p>
   </div>
 </div>
 
+<!-- Campaigns table -->
 {% if campaigns %}
-<div class="card">
-  <div class="card-header">
-    Campañas Activas
-    <a href="/campaigns/new" class="btn btn-sm" style="background:rgba(255,255,255,.2); color:#fff;">+ Nueva</a>
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+    <h3 class="font-semibold text-slate-700">Campañas activas</h3>
+    <a href="/campaigns/new"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-dark text-white text-xs font-medium rounded-lg transition-colors">
+      + Nueva
+    </a>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
         <tr>
-          <th>Campaña</th>
-          <th>Tipo</th>
-          <th>AHT (seg)</th>
-          <th>Intervalo</th>
-          <th>NS objetivo</th>
-          <th>Shrinkage</th>
-          <th>Creada</th>
-          <th>Acciones</th>
+          <th class="text-left px-5 py-3">Campaña</th>
+          <th class="text-left px-4 py-3">Tipo</th>
+          <th class="text-center px-4 py-3">AHT</th>
+          <th class="text-center px-4 py-3">Intervalo</th>
+          <th class="text-center px-4 py-3">NS / Ocupación obj.</th>
+          <th class="text-center px-4 py-3">Shrinkage</th>
+          <th class="text-center px-4 py-3">Creada</th>
+          <th class="text-center px-4 py-3">Acciones</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="divide-y divide-slate-50">
         {% for c in campaigns %}
-        <tr class="{% if loop.index % 2 == 0 %}row-alt{% endif %}">
-          <td style="text-align:left; font-weight:500;">
-            <a href="/campaigns/{{ c.id }}" style="color:var(--blue2); text-decoration:none;">{{ c.name }}</a>
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3 font-medium text-slate-700">
+            <a href="/campaigns/{{ c.id }}" class="hover:text-brand transition-colors">{{ c.name }}</a>
           </td>
-          <td>
-            <span class="type-badge type-{{ c.campaign_type }}">
-              {% if c.campaign_type == 'inbound' %}📞 Entrante
-              {% elif c.campaign_type == 'outbound' %}📤 Saliente
-              {% else %}💬 Chat{% endif %}
-            </span>
+          <td class="px-4 py-3 text-slate-500">
+            {% if c.campaign_type == 'inbound' %}Entrante
+            {% elif c.campaign_type == 'outbound' %}Saliente
+            {% else %}Chat{% endif %}
           </td>
-          <td>{{ c.aht_seconds | int }}s</td>
-          <td>{{ c.interval_minutes }}min</td>
-          <td>
-            {% if c.campaign_type == 'outbound' %}
-              Ocu {{ (c.occupancy_target * 100) | int }}%
-            {% else %}
-              {{ (c.target_sl * 100) | int }}% / {{ c.target_seconds | int }}s
-            {% endif %}
+          <td class="px-4 py-3 text-center font-mono text-slate-600">{{ c.aht_seconds | int }}s</td>
+          <td class="px-4 py-3 text-center text-slate-600">{{ c.interval_minutes }}min</td>
+          <td class="px-4 py-3 text-center text-slate-600">
+            {% if c.campaign_type == 'outbound' %}Ocu {{ (c.occupancy_target * 100) | int }}%
+            {% else %}{{ (c.target_sl * 100) | int }}% / {{ c.target_seconds | int }}s{% endif %}
           </td>
-          <td>{{ (c.shrinkage * 100) | int }}%</td>
-          <td style="font-size:12px; color:#888;">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
-          <td>
-            <a href="/campaigns/{{ c.id }}" class="btn btn-outline btn-sm">Ver</a>
-            <a href="/campaigns/{{ c.id }}/edit" class="btn btn-sm" style="background:var(--gray2); color:var(--blue);">Editar</a>
-            <form method="POST" action="/campaigns/{{ c.id }}/delete" style="display:inline;"
-                  onsubmit="return confirm('¿Eliminar campaña «{{ c.name }}»? Esta acción no se puede deshacer.')">
-              <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
-            </form>
+          <td class="px-4 py-3 text-center text-slate-600">{{ (c.shrinkage * 100) | int }}%</td>
+          <td class="px-4 py-3 text-center text-xs text-slate-400">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+          <td class="px-4 py-3 text-center">
+            <div class="flex items-center justify-center gap-1.5">
+              <a href="/campaigns/{{ c.id }}"
+                 class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Ver</a>
+              <a href="/campaigns/{{ c.id }}/edit"
+                 class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Editar</a>
+              <form method="POST" action="/campaigns/{{ c.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('¿Eliminar «{{ c.name }}»?')">
+                <button type="submit"
+                        class="px-2.5 py-1 text-xs font-medium rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors">
+                  Eliminar
+                </button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -80,33 +92,36 @@
   </div>
 </div>
 {% else %}
-<div class="card">
-  <div class="card-body" style="text-align:center; padding:48px;">
-    <div style="font-size:48px; margin-bottom:16px;">📊</div>
-    <h3 style="color:var(--blue); margin-bottom:8px;">Sin campañas aún</h3>
-    <p style="color:#888; margin-bottom:20px;">Crea tu primera campaña para comenzar el dimensionamiento.</p>
-    <a href="/campaigns/new" class="btn btn-primary">+ Crear primera campaña</a>
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 p-16 text-center mb-6">
+  <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+    <svg class="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
   </div>
+  <h3 class="text-lg font-semibold text-slate-700 mb-2">Sin campañas aún</h3>
+  <p class="text-sm text-slate-400 mb-6">Crea tu primera campaña para comenzar el dimensionamiento.</p>
+  <a href="/campaigns/new"
+     class="inline-flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-dark text-white text-sm font-medium rounded-lg transition-colors">
+    + Crear primera campaña
+  </a>
 </div>
 {% endif %}
 
-<!-- Quick reference -->
-<div class="card" style="margin-top:24px;">
-  <div class="card-header" style="background:var(--blue2);">Guía rápida — Fórmulas y métricas clave</div>
-  <div class="card-body">
-    <div class="grid grid-3">
-      <div>
-        <b style="color:var(--blue);">Erlang C — Inbound</b>
-        <p style="font-size:12px; color:#555; margin-top:6px;">Calcula probabilidad de espera y agentes necesarios para cumplir el Nivel de Servicio (NS). NS estándar: <b>80% de llamadas en 20 seg</b>.</p>
-      </div>
-      <div>
-        <b style="color:var(--orange);">Outbound — Productividad</b>
-        <p style="font-size:12px; color:#555; margin-top:6px;">Basado en tasa de contacto, persona correcta y AHT. Cumplimiento <b>máximo 3% abandono</b> (norma FCC/regulatoria).</p>
-      </div>
-      <div>
-        <b style="color:#1E7B1E;">Chat — Concurrencia</b>
-        <p style="font-size:12px; color:#555; margin-top:6px;">Erlang C modificado con sesiones simultáneas. Concurrencia óptima: <b>2–3 chats/agente</b>. Ocupación recomendada: <b>≤ 80%</b>.</p>
-      </div>
+<!-- Referencia rápida -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100">
+    <h3 class="font-semibold text-slate-700">Fórmulas y métricas clave</h3>
+  </div>
+  <div class="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+    <div class="p-5">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Erlang C — Inbound</p>
+      <p class="text-sm text-slate-500">NS = 1 − C(N,A) · e<sup>−(N−A)·t/AHT</sup>. Estándar: <strong class="text-slate-700">80% en 20 seg</strong>.</p>
+    </div>
+    <div class="p-5">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Outbound — Productividad</p>
+      <p class="text-sm text-slate-500">Tasa de contacto × persona correcta × AHT. Máx. <strong class="text-slate-700">3% abandono</strong>.</p>
+    </div>
+    <div class="p-5">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Chat — Concurrencia</p>
+      <p class="text-sm text-slate-500">Erlang C con sesiones simultáneas. Óptimo: <strong class="text-slate-700">2–3 chats/agente</strong>, ocu ≤ 80%.</p>
     </div>
   </div>
 </div>

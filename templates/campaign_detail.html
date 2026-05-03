@@ -1,539 +1,847 @@
 {% extends "base.html" %}
 {% block title %}{{ campaign.name }} — WFM{% endblock %}
-{% block page_title %}
-  <span class="type-badge type-{{ campaign.campaign_type }}" style="margin-right:8px;">
-    {% if campaign.campaign_type == 'inbound' %}📞{% elif campaign.campaign_type == 'outbound' %}📤{% else %}💬{% endif %}
-  </span>
-  {{ campaign.name }}
-{% endblock %}
 
 {% block content %}
-<div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-  <a href="/campaigns/{{ campaign.id }}/edit" class="btn btn-outline btn-sm">Editar parámetros</a>
-  <form method="POST" action="/campaigns/{{ campaign.id }}/delete" onsubmit="return confirm('¿Eliminar campaña?')" style="display:inline;">
-    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
-  </form>
-</div>
+<div class="space-y-6 max-w-screen-2xl mx-auto">
 
-<!-- Params summary -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-body" style="padding:12px 20px;">
-    <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:12px; color:#555;">
-      <span><b>AHT:</b> {{ campaign.aht_seconds | int }}s</span>
-      <span><b>Shrinkage:</b> {{ (campaign.shrinkage * 100) | int }}%</span>
-      <span><b>Intervalo:</b> {{ campaign.interval_minutes }}min</span>
-      {% if campaign.campaign_type == 'inbound' %}
-        <span><b>NS objetivo:</b> {{ (campaign.target_sl * 100) | int }}% en {{ campaign.target_seconds | int }}s</span>
-        <span><b>Ocu máx:</b> {{ (campaign.max_occupancy * 100) | int }}%</span>
-      {% elif campaign.campaign_type == 'outbound' %}
-        <span><b>Registros:</b> {{ "{:,}".format(campaign.records_to_contact) }}</span>
-        <span><b>Contacto:</b> {{ (campaign.contact_rate * 100) | int }}%</span>
-        <span><b>Modo:</b> {{ campaign.dial_mode }}</span>
-      {% else %}
-        <span><b>Concurrencia:</b> {{ campaign.max_concurrency }}</span>
-        <span><b>Resp. objetivo:</b> {{ campaign.target_response_seconds | int }}s</span>
-        <span><b>Meta resp.:</b> {{ (campaign.target_response_rate * 100) | int }}%</span>
-      {% endif %}
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-slate-800">{{ campaign.name }}</h1>
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+          {% if campaign.campaign_type == 'inbound' %}Entrante
+          {% elif campaign.campaign_type == 'outbound' %}Saliente
+          {% else %}Chat{% endif %}
+        </span>
+      </div>
+      <p class="text-sm text-slate-500 mt-0.5">
+        AHT {{ campaign.aht_seconds|int }}s · Shrinkage {{ (campaign.shrinkage*100)|int }}% · Intervalo {{ campaign.interval_minutes }}min
+        {% if campaign.campaign_type != 'outbound' %} · NS {{ (campaign.target_sl*100)|int }}% / {{ campaign.target_seconds|int }}s{% endif %}
+      </p>
     </div>
-  </div>
-</div>
-
-<div class="tabs" id="main-tabs">
-  <div class="tab active" onclick="switchTab('volumes')">Volúmenes</div>
-  <div class="tab" onclick="switchTab('calculate')">Calcular Dotación</div>
-  <div class="tab" onclick="switchTab('forecast')">Pronóstico</div>
-  {% if campaign.campaign_type == 'inbound' %}
-  <div class="tab" onclick="switchTab('sensitivity')">Análisis Sensibilidad</div>
-  {% endif %}
-  {% if plans %}
-  <div class="tab" onclick="switchTab('history')">Planes Guardados</div>
-  {% endif %}
-</div>
-
-<!-- VOLUMES TAB -->
-<div id="tab-volumes" class="tab-panel active">
-  <div class="grid grid-2" style="gap:20px; align-items:start;">
-    <div class="card">
-      <div class="card-header">
-        Perfil de Volumen por Intervalo
-        <select id="day-type-sel" onchange="loadVolumes()" style="background:rgba(255,255,255,.2); border:none; color:#fff; font-size:12px; padding:2px 6px; border-radius:4px;">
-          <option value="weekday">Día hábil</option>
-          <option value="saturday">Sábado</option>
-          <option value="sunday">Domingo</option>
-        </select>
-      </div>
-      <div class="card-body">
-        <p style="font-size:12px; color:#666; margin-bottom:12px;">
-          Ingresa el {% if campaign.campaign_type == 'chat' %}número de sesiones{% else %}número de llamadas{% endif %} por intervalo de {{ campaign.interval_minutes }} minutos.
-        </p>
-        <div class="vol-grid" id="vol-grid"></div>
-        <div style="margin-top:16px; display:flex; gap:10px;">
-          <button class="btn btn-primary btn-sm" onclick="saveVolumes()">Guardar volúmenes</button>
-          <button class="btn btn-outline btn-sm" onclick="distributeVolume()">Distribuir total</button>
-        </div>
-        <div style="margin-top:10px;">
-          <label style="font-size:12px;">Total diario: <input type="number" id="total-daily" placeholder="Ej: 1200" style="width:100px; padding:4px 8px; display:inline;">
-          <button class="btn btn-outline btn-sm" onclick="distributeVolume()" style="margin-left:4px;">Aplicar distribución</button></label>
-        </div>
-        <div id="vol-status" style="margin-top:8px; font-size:12px; color:green;"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">Visualización de Volumen</div>
-      <div class="card-body">
-        <div style="position:relative; height:220px;">
-          <canvas id="vol-chart"></canvas>
-        </div>
-        <div style="margin-top:12px; font-size:12px; color:#666;">
-          <b>Total ingresado:</b> <span id="total-vol">0</span>
-          &nbsp;|&nbsp; <b>Pico:</b> <span id="peak-vol">—</span>
-        </div>
-      </div>
+    <div class="flex items-center gap-2">
+      <a href="/campaigns/{{ campaign.id }}/edit"
+         class="text-sm px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+        Editar
+      </a>
+      <form method="POST" action="/campaigns/{{ campaign.id }}/delete" style="display:inline"
+            onsubmit="return confirm('¿Eliminar «{{ campaign.name }}»?')">
+        <button type="submit"
+                class="text-sm px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+          Eliminar
+        </button>
+      </form>
     </div>
   </div>
 
-  <!-- Historical data input -->
-  <div class="card">
-    <div class="card-header" style="background:var(--blue2);">Datos Históricos (para pronóstico)</div>
-    <div class="card-body">
-      <div class="grid grid-2">
-        <div>
-          <p style="font-size:12px; color:#666; margin-bottom:10px;">Ingresa volúmenes diarios históricos. Se usarán para el pronóstico automático.</p>
-          <div id="hist-rows">
-            <div class="form-row hist-row" style="margin-bottom:6px;">
-              <input type="date" class="hist-date" style="flex:1;" value="{{ now_date }}">
-              <input type="number" class="hist-vol" placeholder="Volumen" style="flex:1;" min="0">
+  <!-- ── KPI summary cards ─────────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">AHT</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ campaign.aht_seconds|int }}<span class="text-sm font-normal text-slate-400 ml-1">seg</span></p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Shrinkage</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ (campaign.shrinkage*100)|int }}<span class="text-sm font-normal text-slate-400 ml-1">%</span></p>
+    </div>
+    {% if campaign.campaign_type == 'inbound' %}
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">NS objetivo</p>
+      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ (campaign.target_sl*100)|int }}%<span class="text-sm font-normal text-slate-400 ml-1">en {{ campaign.target_seconds|int }}s</span></p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Ocu. máxima</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ (campaign.max_occupancy*100)|int }}<span class="text-sm font-normal text-slate-400 ml-1">%</span></p>
+    </div>
+    {% elif campaign.campaign_type == 'outbound' %}
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Tasa contacto</p>
+      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ (campaign.contact_rate*100)|int }}<span class="text-sm font-normal text-slate-400 ml-1">%</span></p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Registros</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ "{:,}".format(campaign.records_to_contact) }}</p>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Concurrencia</p>
+      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ campaign.max_concurrency }}<span class="text-sm font-normal text-slate-400 ml-1">chats/ag</span></p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Resp. objetivo</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ campaign.target_response_seconds|int }}<span class="text-sm font-normal text-slate-400 ml-1">seg</span></p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Tabs ──────────────────────────────────────────────────────────── -->
+  <div class="flex gap-1 border-b border-slate-200 overflow-x-auto">
+    <button onclick="switchTab('heatmap')" id="btn-heatmap"
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-indigo-500 text-indigo-600">
+      Mapa de calor
+    </button>
+    <button onclick="switchTab('forecast')" id="btn-forecast"
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      Dimensionado Erlang C
+    </button>
+    <button onclick="switchTab('volumes')" id="btn-volumes"
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      Volúmenes
+    </button>
+    <button onclick="switchTab('pronostico')" id="btn-pronostico"
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      Pronóstico
+    </button>
+    {% if campaign.campaign_type == 'inbound' %}
+    <button onclick="switchTab('sensitivity')" id="btn-sensitivity"
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      Sensibilidad
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB: MAPA DE CALOR
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div id="tab-heatmap" class="space-y-4">
+
+    <div class="flex items-center gap-4 flex-wrap">
+      <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+        <button onclick="setHeatMode('volume')" id="heat-btn-volume"
+                class="text-xs px-3 py-1 rounded-md font-medium transition-colors bg-white text-indigo-600 shadow-sm">
+          Volumen
+        </button>
+        <button onclick="setHeatMode('pct')" id="heat-btn-pct"
+                class="text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-700">
+          % del pico
+        </button>
+      </div>
+      <select id="heat-day-type" onchange="buildHeatmap()"
+              class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="weekday">Día hábil</option>
+        <option value="saturday">Sábado</option>
+        <option value="sunday">Domingo</option>
+      </select>
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span class="w-4 h-4 rounded inline-block" style="background:rgba(99,102,241,0.12)"></span> Bajo
+        <span class="w-4 h-4 rounded inline-block" style="background:rgba(99,102,241,0.55)"></span> Medio
+        <span class="w-4 h-4 rounded inline-block" style="background:rgba(99,102,241,0.90)"></span> Alto
+        <span class="w-4 h-4 rounded inline-block bg-slate-100 border border-slate-200"></span> Sin datos
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div id="heatmap-container" class="overflow-x-auto">
+        <p class="text-sm text-slate-400 text-center py-8">Ingresa volúmenes en la pestaña "Volúmenes" para ver el mapa de calor.</p>
+      </div>
+    </div>
+
+    <!-- Mejor hora por día -->
+    <div id="best-hours" class="grid grid-cols-2 sm:grid-cols-4 gap-3 hidden">
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB: DIMENSIONADO ERLANG C
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div id="tab-forecast" class="space-y-4 hidden">
+
+    <div class="flex items-center gap-3 flex-wrap">
+      <select id="calc-day-type"
+              class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="weekday">Día hábil</option>
+        <option value="saturday">Sábado</option>
+        <option value="sunday">Domingo</option>
+      </select>
+      <button id="calc-btn" onclick="calculate()"
+              class="text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-60">
+        <span class="btn-text">Calcular dotación</span>
+        <svg class="spinner hidden w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10"/>
+        </svg>
+      </button>
+      <button id="export-btn" onclick="exportReport()"
+              class="hidden text-sm px-4 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+        Exportar Excel
+      </button>
+    </div>
+
+    <!-- Gráfico doble eje — igual al dialer -->
+    <div id="chart-card" class="bg-white rounded-xl border border-slate-200 p-4 hidden">
+      <div style="position:relative;height:280px;">
+        <canvas id="erlang-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- KPIs del cálculo -->
+    <div id="calc-kpis" class="hidden"></div>
+
+    <!-- Tabla de resultados -->
+    <div id="calc-table-card" class="bg-white rounded-xl border border-slate-200 overflow-hidden hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <h3 class="text-sm font-semibold text-slate-700">Plan de dotación por intervalo</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+            <tr>
+              <th class="text-left px-4 py-3">Intervalo</th>
+              <th class="text-center px-4 py-3">Llamadas</th>
+              <th class="text-center px-4 py-3">Erlangs</th>
+              <th class="text-center px-4 py-3">Ag. mín (Erlang C)</th>
+              <th class="text-center px-4 py-3">Plantilla</th>
+              <th class="text-center px-4 py-3">Nivel Servicio</th>
+              <th class="text-center px-4 py-3">ASA</th>
+              <th class="text-center px-4 py-3">Ocupación</th>
+              <th class="text-center px-4 py-3">Troncales</th>
+            </tr>
+          </thead>
+          <tbody id="calc-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB: VOLÚMENES
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div id="tab-volumes" class="space-y-4 hidden">
+    <div class="grid md:grid-cols-2 gap-5">
+
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <h3 class="text-sm font-semibold text-slate-700">Perfil de volumen</h3>
+          <select id="day-type-sel" onchange="loadVolumes()"
+                  class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400">
+            <option value="weekday">Día hábil</option>
+            <option value="saturday">Sábado</option>
+            <option value="sunday">Domingo</option>
+          </select>
+        </div>
+        <div class="p-4">
+          <p class="text-xs text-slate-400 mb-3">
+            {% if campaign.campaign_type == 'chat' %}Sesiones{% else %}Llamadas{% endif %}
+            por intervalo de {{ campaign.interval_minutes }} min.
+          </p>
+          <div style="display:grid;grid-template-columns:58px 1fr;gap:3px 8px;align-items:center;max-height:380px;overflow-y:auto;padding-right:4px" id="vol-grid"></div>
+          <div class="mt-4 flex items-center gap-2 flex-wrap">
+            <button onclick="saveVolumes()"
+                    class="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              Guardar
+            </button>
+            <div class="flex items-center gap-1.5">
+              <input type="number" id="total-daily" placeholder="Total diario"
+                     class="w-28 px-2 py-1.5 text-sm border border-slate-300 rounded-lg outline-none focus:border-indigo-400">
+              <button onclick="distributeVolume()"
+                      class="text-sm px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                Distribuir
+              </button>
             </div>
           </div>
-          <button class="btn btn-outline btn-sm" onclick="addHistRow()" style="margin-top:4px;">+ Agregar fila</button>
-          <button class="btn btn-primary btn-sm" onclick="saveHistorical()" style="margin-top:4px; margin-left:8px;">Guardar histórico</button>
+          <p id="vol-status" class="text-xs text-emerald-600 mt-2 h-4"></p>
         </div>
-        <div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-100">
+          <h3 class="text-sm font-semibold text-slate-700">Visualización</h3>
+        </div>
+        <div class="p-4">
+          <div style="position:relative;height:240px;">
+            <canvas id="vol-chart"></canvas>
+          </div>
+          <div class="flex items-center gap-5 mt-3 text-xs text-slate-500">
+            <span>Total: <strong class="text-slate-700" id="total-vol">0</strong></span>
+            <span>Pico: <strong class="text-slate-700" id="peak-vol">—</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <h3 class="text-sm font-semibold text-slate-700">Datos históricos <span class="text-xs font-normal text-slate-400">(para pronóstico)</span></h3>
+      </div>
+      <div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+        <div class="p-4">
+          <p class="text-xs text-slate-400 mb-3">Ingresa volúmenes diarios históricos.</p>
+          <div id="hist-rows" class="space-y-2">
+            <div class="hist-row flex gap-2">
+              <input type="date" class="hist-date flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-400" value="{{ now_date }}">
+              <input type="number" class="hist-vol flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-400" placeholder="Volumen" min="0">
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="addHistRow()" class="text-xs px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">+ Fila</button>
+            <button onclick="saveHistorical()" class="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Guardar histórico</button>
+          </div>
+        </div>
+        <div class="p-4">
           {% if historical %}
-          <b style="font-size:12px;">Últimos registros históricos:</b>
-          <table style="margin-top:8px; font-size:12px;">
-            <thead><tr><th>Fecha</th><th>Volumen</th></tr></thead>
-            <tbody>
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Últimos registros</p>
+          <table class="w-full text-sm">
+            <thead><tr><th class="text-left pb-2 text-xs text-slate-400">Fecha</th><th class="text-right pb-2 text-xs text-slate-400">Volumen</th></tr></thead>
+            <tbody class="divide-y divide-slate-50">
               {% for h in historical[:10] %}
-              <tr><td>{{ h.record_date }}</td><td>{{ "{:,.0f}".format(h.total_volume) }}</td></tr>
+              <tr><td class="py-1.5 text-slate-600">{{ h.record_date }}</td><td class="py-1.5 text-right font-mono text-slate-700">{{ "{:,.0f}".format(h.total_volume) }}</td></tr>
               {% endfor %}
             </tbody>
           </table>
           {% else %}
-          <div class="alert alert-info">Sin datos históricos aún. Agrega registros para habilitar el pronóstico.</div>
+          <div class="flex items-center justify-center h-full text-sm text-slate-400 py-8">Sin datos históricos aún.</div>
           {% endif %}
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- CALCULATE TAB -->
-<div id="tab-calculate" class="tab-panel">
-  <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-    <select id="calc-day-type" style="padding:7px 12px; border:1px solid var(--border); border-radius:5px; font-size:13px;">
-      <option value="weekday">Día hábil</option>
-      <option value="saturday">Sábado</option>
-      <option value="sunday">Domingo</option>
-    </select>
-    <button class="btn btn-primary" id="calc-btn" onclick="calculate()">
-      <span class="btn-text">Calcular dotación</span>
-      <span class="spinner"></span>
-    </button>
-    <button class="btn btn-outline" id="export-btn" style="display:none;" onclick="exportReport()">Exportar Excel</button>
-  </div>
-  <div id="calc-result"></div>
-</div>
-
-<!-- FORECAST TAB -->
-<div id="tab-forecast" class="tab-panel">
-  <div class="card">
-    <div class="card-header">Configuración del Pronóstico</div>
-    <div class="card-body">
-      <div class="form-row" style="max-width:600px;">
-        <div class="form-group">
-          <label>Días a pronosticar</label>
-          <input type="number" id="fc-days" value="7" min="1" max="90">
-        </div>
-        <div class="form-group">
-          <label>Método</label>
-          <select id="fc-method">
-            <option value="wma">Promedio Móvil Ponderado (WMA)</option>
-            <option value="sma">Promedio Móvil Simple (SMA)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Crecimiento anual (%)</label>
-          <input type="number" id="fc-growth" value="0" step="0.5" min="-50" max="200">
-        </div>
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB: PRONÓSTICO
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div id="tab-pronostico" class="space-y-4 hidden">
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <h3 class="text-sm font-semibold text-slate-700">Configuración del pronóstico</h3>
       </div>
-      <button class="btn btn-primary" onclick="runForecast()">Generar pronóstico</button>
-    </div>
-  </div>
-  <div id="forecast-result"></div>
-</div>
-
-{% if campaign.campaign_type == 'inbound' %}
-<!-- SENSITIVITY TAB -->
-<div id="tab-sensitivity" class="tab-panel">
-  <div class="card">
-    <div class="card-header">Análisis de Sensibilidad — Impacto de cambio de agentes</div>
-    <div class="card-body">
-      <div class="form-row" style="max-width:400px;">
-        <div class="form-group">
-          <label>Llamadas en el intervalo de análisis</label>
-          <input type="number" id="sens-calls" value="100" min="1">
+      <div class="p-4 flex items-end gap-4 flex-wrap">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Días a pronosticar</label>
+          <input type="number" id="fc-days" value="7" min="1" max="90"
+                 class="w-24 px-3 py-1.5 text-sm border border-slate-300 rounded-lg outline-none focus:border-indigo-400">
         </div>
         <div>
-          <label>&nbsp;</label>
-          <button class="btn btn-primary" onclick="runSensitivity()">Analizar</button>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Método</label>
+          <select id="fc-method" class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="wma">Prom. Móvil Ponderado (WMA)</option>
+            <option value="sma">Prom. Móvil Simple (SMA)</option>
+          </select>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Crecimiento anual (%)</label>
+          <input type="number" id="fc-growth" value="0" step="0.5"
+                 class="w-20 px-3 py-1.5 text-sm border border-slate-300 rounded-lg outline-none focus:border-indigo-400">
+        </div>
+        <button onclick="runForecast()" class="text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Generar pronóstico</button>
       </div>
     </div>
+    <div id="forecast-result"></div>
   </div>
-  <div id="sensitivity-result"></div>
-</div>
-{% endif %}
 
-{% if plans %}
-<!-- HISTORY TAB -->
-<div id="tab-history" class="tab-panel">
-  <div class="card">
-    <div class="card-header">Planes de Dotación Guardados</div>
-    <div class="card-body">
-      {% for plan in plans %}
-      <div style="border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:10px;">
-        <b>{{ plan.plan_name }}</b>
-        <span style="font-size:11px; color:#888; margin-left:12px;">{{ plan.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
-        {% if plan.summary_json %}
-        {% set summ = plan.summary_json | tojson %}
-        <div style="font-size:12px; color:#555; margin-top:6px;">
-          Ver en pestaña Calcular
-        </div>
-        {% endif %}
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB: SENSIBILIDAD
+  ══════════════════════════════════════════════════════════════════════ -->
+  {% if campaign.campaign_type == 'inbound' %}
+  <div id="tab-sensitivity" class="space-y-4 hidden">
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <h3 class="text-sm font-semibold text-slate-700">Análisis de sensibilidad — impacto de cambio de agentes</h3>
       </div>
-      {% endfor %}
+      <div class="p-4 flex items-end gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Llamadas en el intervalo</label>
+          <input type="number" id="sens-calls" value="100" min="1"
+                 class="w-32 px-3 py-1.5 text-sm border border-slate-300 rounded-lg outline-none focus:border-indigo-400">
+        </div>
+        <button onclick="runSensitivity()" class="text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Analizar</button>
+      </div>
     </div>
+    <div id="sensitivity-result"></div>
   </div>
-</div>
-{% endif %}
+  {% endif %}
 
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</div><!-- /max-w -->
 
+<script src="/static/vendor/chart.umd.min.js"></script>
 <script>
-const CAMPAIGN_ID = {{ campaign.id }};
-const CAMPAIGN_TYPE = "{{ campaign.campaign_type }}";
+const CAMPAIGN_ID      = {{ campaign.id }};
+const CAMPAIGN_TYPE    = "{{ campaign.campaign_type }}";
 const INTERVAL_MINUTES = {{ campaign.interval_minutes }};
 const LABELS = {{ labels | tojson }};
-const INITIAL_VOLUMES = {{ volumes | tojson }};
-
-let currentVolumes = [...INITIAL_VOLUMES];
+let currentVolumes = {{ volumes | tojson }};
 let volChart = null;
+let erlangChart = null;
 let lastResult = null;
+let heatMode = 'volume';
 
-// ─── Tabs ────────────────────────────────────────────────────────────────────
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+const ALL_TABS = ['heatmap','forecast','volumes','pronostico'{% if campaign.campaign_type == 'inbound' %},'sensitivity'{% endif %}];
+
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const tabs = ['volumes','calculate','forecast',{% if campaign.campaign_type == 'inbound' %}'sensitivity',{% endif %}{% if plans %}'history'{% endif %}];
-  const idx = tabs.indexOf(name);
-  if(idx >= 0) document.querySelectorAll('.tab')[idx].classList.add('active');
-  const panel = document.getElementById('tab-' + name);
-  if(panel) panel.classList.add('active');
+  ALL_TABS.forEach(id => {
+    const panel = document.getElementById('tab-' + id);
+    const btn   = document.getElementById('btn-' + id);
+    if (!panel || !btn) return;
+    panel.classList.add('hidden');
+    btn.classList.remove('border-indigo-500','text-indigo-600');
+    btn.classList.add('border-transparent','text-slate-500');
+  });
+  document.getElementById('tab-' + name)?.classList.remove('hidden');
+  const ab = document.getElementById('btn-' + name);
+  if (ab) {
+    ab.classList.add('border-indigo-500','text-indigo-600');
+    ab.classList.remove('border-transparent','text-slate-500');
+  }
+  if (name === 'heatmap') buildHeatmap();
 }
 
-// ─── Volume grid ──────────────────────────────────────────────────────────────
-function buildGrid(volumes) {
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+const DOW_LABELS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+// Factor de variación por día (simulado para standalone)
+const DOW_FACTOR = [1.0, 0.98, 1.02, 0.97, 0.96, 0.60, 0.35];
+
+function setHeatMode(mode) {
+  heatMode = mode;
+  document.getElementById('heat-btn-volume').className =
+    mode === 'volume'
+      ? 'text-xs px-3 py-1 rounded-md font-medium transition-colors bg-white text-indigo-600 shadow-sm'
+      : 'text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-700';
+  document.getElementById('heat-btn-pct').className =
+    mode === 'pct'
+      ? 'text-xs px-3 py-1 rounded-md font-medium transition-colors bg-white text-indigo-600 shadow-sm'
+      : 'text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-700';
+  buildHeatmap();
+}
+
+function buildHeatmap() {
+  const container = document.getElementById('heatmap-container');
+  const n = LABELS.length;
+  if (!n || currentVolumes.every(v => v === 0)) {
+    container.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">Ingresa volúmenes en la pestaña "Volúmenes" para ver el mapa de calor.</p>';
+    document.getElementById('best-hours').classList.add('hidden');
+    return;
+  }
+
+  // Construir grilla: 7 días × n slots
+  const grid = DOW_FACTOR.map(f => currentVolumes.map(v => Math.round(v * f * 10) / 10));
+  const allVals = grid.flat().filter(v => v > 0);
+  const maxVal  = allVals.length ? Math.max(...allVals) : 1;
+
+  function cellStyle(val) {
+    if (!val || val === 0) return 'background:#f8fafc;color:#cbd5e1';
+    const ratio = Math.min(val / maxVal, 1);
+    const alpha = 0.08 + ratio * 0.82;
+    if (heatMode === 'pct') {
+      const pct = Math.round(ratio * 100);
+      return `background:rgba(99,102,241,${alpha.toFixed(2)});color:${ratio > 0.55 ? '#fff' : '#1e293b'}`;
+    }
+    return `background:rgba(99,102,241,${alpha.toFixed(2)});color:${ratio > 0.55 ? '#fff' : '#1e293b'}`;
+  }
+
+  function cellVal(val) {
+    if (!val || val === 0) return '';
+    if (heatMode === 'pct') return Math.round((val / maxVal) * 100) + '%';
+    return val % 1 === 0 ? val : val.toFixed(1);
+  }
+
+  // Limitar columnas para legibilidad (máx 48)
+  const showCols = Math.min(n, 48);
+  const step = Math.ceil(n / showCols);
+
+  let html = '<table class="text-xs border-separate border-spacing-0.5 w-full">';
+  // Header: horas
+  html += '<thead><tr><th class="w-10 text-slate-400 font-normal text-right pr-2 pb-1">Día \\ h</th>';
+  for (let i = 0; i < n; i += step) {
+    html += `<th class="text-center font-normal pb-1 ${i % (2*step) === 0 ? 'text-slate-500 font-semibold' : 'text-slate-300'}" style="min-width:36px">`;
+    html += i % (2*step) === 0 ? LABELS[i] : '·';
+    html += '</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  DOW_LABELS.forEach((day, di) => {
+    html += `<tr><td class="text-right pr-2 text-slate-500 font-medium py-0.5">${day}</td>`;
+    for (let i = 0; i < n; i += step) {
+      const val = grid[di][i];
+      const label = LABELS[i];
+      const displayVal = cellVal(val);
+      html += `<td style="${cellStyle(val)};height:28px;border-radius:3px;cursor:default;"
+                   class="text-center font-semibold transition-opacity text-[10px]"
+                   title="${day} ${label}: ${val || 'Sin datos'}">${displayVal}</td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // Mejor hora por día
+  const bestHours = document.getElementById('best-hours');
+  let bhtml = '';
+  DOW_LABELS.forEach((day, di) => {
+    const row = grid[di];
+    const maxIdx = row.indexOf(Math.max(...row));
+    const maxV = row[maxIdx];
+    bhtml += `<div class="bg-white rounded-xl border border-slate-200 p-3">
+      <p class="text-xs font-semibold text-slate-500 mb-1">${day} — pico</p>
+      <p class="text-lg font-bold text-indigo-600">${LABELS[maxIdx] || '—'}</p>
+      <p class="text-xs text-slate-500">${maxV} ${CAMPAIGN_TYPE === 'chat' ? 'sesiones' : 'llamadas'}</p>
+    </div>`;
+  });
+  bestHours.innerHTML = bhtml;
+  bestHours.classList.remove('hidden');
+}
+
+// ── Volume grid ───────────────────────────────────────────────────────────────
+function buildGrid(vols) {
   const grid = document.getElementById('vol-grid');
   grid.innerHTML = '';
   LABELS.forEach((lbl, i) => {
-    const label = document.createElement('label');
-    label.textContent = lbl;
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.min = '0';
-    input.step = '1';
-    input.value = volumes[i] || 0;
-    input.dataset.idx = i;
-    input.addEventListener('input', () => { currentVolumes[i] = parseFloat(input.value) || 0; updateStats(); updateChart(); });
-    grid.appendChild(label);
-    grid.appendChild(input);
+    const la = document.createElement('label');
+    la.textContent = lbl;
+    la.style.cssText = 'font-size:11px;color:#64748b;text-align:right';
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = '0'; inp.step = '1'; inp.value = vols[i] || 0;
+    inp.style.cssText = 'padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:100%;outline:none';
+    inp.addEventListener('focus', () => inp.style.borderColor = '#6366f1');
+    inp.addEventListener('blur',  () => inp.style.borderColor = '#cbd5e1');
+    inp.addEventListener('input', () => {
+      currentVolumes[i] = parseFloat(inp.value) || 0;
+      updateStats(); updateVolChart();
+    });
+    grid.appendChild(la); grid.appendChild(inp);
   });
   updateStats();
 }
 
 function updateStats() {
   const total = currentVolumes.reduce((a,b)=>a+b,0);
-  const peak = Math.max(...currentVolumes);
-  const peakIdx = currentVolumes.indexOf(peak);
+  const peak  = Math.max(...currentVolumes);
+  const pi    = currentVolumes.indexOf(peak);
   document.getElementById('total-vol').textContent = total.toFixed(0);
-  document.getElementById('peak-vol').textContent = `${peak.toFixed(0)} @ ${LABELS[peakIdx] || '—'}`;
-}
-
-function loadVolumes() {
-  // In a real app, load from server for the selected day type
-  // For now, use initial data
-  buildGrid(currentVolumes);
+  document.getElementById('peak-vol').textContent  = peak > 0 ? `${peak.toFixed(0)} @ ${LABELS[pi]}` : '—';
 }
 
 function distributeVolume() {
   const total = parseFloat(document.getElementById('total-daily').value) || 0;
-  if(total <= 0) return;
-  // Use a bell-curve-like intraday distribution
+  if (!total) return;
   const n = LABELS.length;
-  const weights = LABELS.map((_, i) => {
-    const x = (i / n - 0.45) * 3; // peak around 10-11am
-    return Math.exp(-0.5 * x * x);
-  });
-  const wSum = weights.reduce((a,b)=>a+b,0);
-  currentVolumes = weights.map(w => Math.round((w/wSum) * total * 10) / 10);
-  buildGrid(currentVolumes);
+  const w = LABELS.map((_,i) => { const x=(i/n-.45)*3; return Math.exp(-.5*x*x); });
+  const ws = w.reduce((a,b)=>a+b,0);
+  currentVolumes = w.map(v => Math.round((v/ws)*total*10)/10);
+  buildGrid(currentVolumes); updateVolChart();
 }
 
 async function saveVolumes() {
-  const dayType = document.getElementById('day-type-sel').value;
+  const dt = document.getElementById('day-type-sel').value;
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/volumes`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ volumes: currentVolumes, day_type: dayType })
+    body: JSON.stringify({ volumes: currentVolumes, day_type: dt })
   });
   const d = await r.json();
-  document.getElementById('vol-status').textContent = d.status === 'ok' ? '✓ Volúmenes guardados' : 'Error al guardar';
-  setTimeout(() => document.getElementById('vol-status').textContent = '', 3000);
+  const st = document.getElementById('vol-status');
+  st.textContent = d.status === 'ok' ? '✓ Guardado' : 'Error';
+  setTimeout(() => st.textContent = '', 3000);
+  buildHeatmap();
 }
 
-// ─── Chart ────────────────────────────────────────────────────────────────────
-function initChart() {
-  const ctx = document.getElementById('vol-chart').getContext('2d');
-  volChart = new Chart(ctx, {
+function loadVolumes() { buildGrid(currentVolumes); updateVolChart(); }
+
+// ── Volume chart ──────────────────────────────────────────────────────────────
+function initVolChart() {
+  volChart = new Chart(document.getElementById('vol-chart').getContext('2d'), {
     type: 'bar',
-    data: {
-      labels: LABELS,
-      datasets: [{
-        label: CAMPAIGN_TYPE === 'chat' ? 'Sesiones' : 'Llamadas',
-        data: currentVolumes,
-        backgroundColor: 'rgba(46,117,182,0.7)',
-        borderColor: '#1F4E79',
-        borderWidth: 1,
-      }]
-    },
+    data: { labels: LABELS, datasets: [{
+      label: CAMPAIGN_TYPE==='chat'?'Sesiones':'Llamadas',
+      data: currentVolumes,
+      backgroundColor: 'rgba(99,102,241,0.65)',
+      borderColor: '#6366f1', borderWidth: 1, borderRadius: 3
+    }]},
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true }, x: { ticks: { maxTicksLimit: 12, font: { size: 10 } } } }
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+        x: { ticks: { maxTicksLimit: 12, font: { size: 10 }, color: '#94a3b8' }, grid: { display: false } }
+      }
     }
   });
 }
 
-function updateChart() {
-  if(!volChart) return;
+function updateVolChart() {
+  if (!volChart) return;
   volChart.data.datasets[0].data = currentVolumes;
   volChart.update('none');
 }
 
-// ─── Calculate ────────────────────────────────────────────────────────────────
+// ── Calculate (Erlang C) ──────────────────────────────────────────────────────
 async function calculate() {
   const btn = document.getElementById('calc-btn');
-  btn.classList.add('loading');
-  const dayType = document.getElementById('calc-day-type').value;
+  btn.disabled = true;
+  btn.querySelector('.btn-text').textContent = 'Calculando…';
+  btn.querySelector('.spinner').classList.remove('hidden');
+
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/calculate`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ day_type: dayType })
+    body: JSON.stringify({ day_type: document.getElementById('calc-day-type').value })
   });
   const data = await r.json();
-  btn.classList.remove('loading');
+
+  btn.disabled = false;
+  btn.querySelector('.btn-text').textContent = 'Calcular dotación';
+  btn.querySelector('.spinner').classList.add('hidden');
+
   lastResult = data;
-  renderResult(data);
-  document.getElementById('export-btn').style.display = 'inline-flex';
+  renderCalcResult(data);
+  document.getElementById('export-btn').classList.remove('hidden');
 }
 
-function renderResult(data) {
-  const el = document.getElementById('calc-result');
-  if(data.type === 'inbound') renderInbound(el, data);
-  else if(data.type === 'outbound') renderOutbound(el, data);
-  else if(data.type === 'chat') renderChat(el, data);
+function slClass(v) { return v>=80 ? 'text-emerald-600 font-medium' : v>=70 ? 'text-amber-600 font-medium' : 'text-red-600 font-bold'; }
+function ocClass(v) { return v<=85 ? 'text-emerald-600 font-medium' : v<=90 ? 'text-amber-600 font-medium' : 'text-red-600 font-bold'; }
+
+function renderCalcResult(data) {
+  if (data.type === 'inbound') renderInbound(data);
+  else if (data.type === 'outbound') renderOutbound(data);
+  else renderChat(data);
 }
 
-function renderInbound(el, data) {
+function renderInbound(data) {
   const s = data.summary;
-  let kpis = `<div class="grid grid-4" style="margin-bottom:16px;">
-    <div class="kpi"><div class="kpi-label">Total Llamadas</div><div class="kpi-value">${(s.total_calls||0).toLocaleString()}</div></div>
-    <div class="kpi"><div class="kpi-label">Agentes Brutos Pico</div><div class="kpi-value" style="color:var(--blue2)">${s.peak_gross_agents||0}</div><div class="kpi-sub">Intervalo ${s.peak_interval||''}</div></div>
-    <div class="kpi ${s.average_service_level>=80?'good':s.average_service_level>=70?'warn':'bad'}"><div class="kpi-label">NS Promedio</div><div class="kpi-value">${(s.average_service_level||0).toFixed(1)}%</div></div>
-    <div class="kpi ${s.average_occupancy<=85?'good':s.average_occupancy<=90?'warn':'bad'}"><div class="kpi-label">Ocupación Prom.</div><div class="kpi-value">${(s.average_occupancy||0).toFixed(1)}%</div><div class="kpi-sub">ASA: ${(s.average_asa_seconds||0).toFixed(0)}s</div></div>
-  </div>`;
 
-  let rows = data.plan.map((r,i) => {
-    const slClass = r.service_level>=0.80?'sl-good':r.service_level>=0.70?'sl-warn':'sl-bad';
-    const occClass = r.occupancy<=0.85?'occ-good':r.occupancy<=0.90?'occ-warn':'occ-bad';
-    const bg = i%2===0?'':'class="row-alt"';
-    return `<tr ${bg}>
-      <td><b>${r.interval}</b></td>
-      <td>${(r.calls||0).toLocaleString()}</td>
-      <td>${r.traffic_intensity||0}</td>
-      <td>${r.productive_agents||0}</td>
-      <td><b>${r.gross_agents||0}</b></td>
-      <td class="${slClass}">${((r.service_level||0)*100).toFixed(1)}%</td>
-      <td>${r.asa_seconds||0}s</td>
-      <td class="${occClass}">${((r.occupancy||0)*100).toFixed(1)}%</td>
-      <td>${r.trunks_needed||0}</td>
+  // KPIs
+  const slC = s.average_service_level >= 80 ? 'text-emerald-600' : s.average_service_level >= 70 ? 'text-amber-600' : 'text-red-600';
+  const ocC = s.average_occupancy <= 85 ? 'text-emerald-600' : s.average_occupancy <= 90 ? 'text-amber-600' : 'text-red-600';
+  document.getElementById('calc-kpis').innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Total llamadas</p>
+        <p class="text-2xl font-bold text-slate-800 mt-1">${(+s.total_calls||0).toLocaleString()}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes brutos pico</p>
+        <p class="text-2xl font-bold text-indigo-600 mt-1">${s.peak_gross_agents||0}</p>
+        <p class="text-xs text-slate-400">Intervalo ${s.peak_interval||''}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">NS promedio</p>
+        <p class="text-2xl font-bold ${slC} mt-1">${(+s.average_service_level||0).toFixed(1)}%</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Ocupación prom.</p>
+        <p class="text-2xl font-bold ${ocC} mt-1">${(+s.average_occupancy||0).toFixed(1)}%</p>
+        <p class="text-xs text-slate-400">ASA: ${(+s.average_asa_seconds||0).toFixed(0)}s</p>
+      </div>
+    </div>`;
+  document.getElementById('calc-kpis').classList.remove('hidden');
+
+  // Chart doble eje — igual al dialer
+  document.getElementById('chart-card').classList.remove('hidden');
+  const plan = data.plan.filter(r => r.calls > 0 || r.gross_agents > 0);
+  const lbls = plan.map(r => r.interval);
+  if (erlangChart) erlangChart.destroy();
+  erlangChart = new Chart(document.getElementById('erlang-chart').getContext('2d'), {
+    data: {
+      labels: lbls,
+      datasets: [
+        {
+          type: 'bar', label: 'Plantilla (con shrinkage)',
+          data: plan.map(r => r.gross_agents),
+          backgroundColor: 'rgba(99,102,241,0.75)',
+          borderRadius: 3, yAxisID: 'y', order: 2,
+        },
+        {
+          type: 'bar', label: 'Mínimo Erlang C',
+          data: plan.map(r => r.productive_agents),
+          backgroundColor: 'rgba(99,102,241,0.25)',
+          borderRadius: 3, yAxisID: 'y', order: 3,
+        },
+        {
+          type: 'line', label: 'Llamadas/intervalo',
+          data: plan.map(r => r.calls),
+          borderColor: 'rgba(249,115,22,0.85)',
+          backgroundColor: 'rgba(249,115,22,0.08)',
+          tension: 0.4, fill: true, yAxisID: 'y2', order: 1, pointRadius: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        y:  { position: 'left',  title: { display: true, text: 'Agentes' }, beginAtZero: true, ticks: { stepSize: 1 } },
+        y2: { position: 'right', title: { display: true, text: 'Llamadas' }, beginAtZero: true, grid: { drawOnChartArea: false } },
+      },
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } },
+    },
+  });
+
+  // Tabla
+  document.getElementById('calc-table-card').classList.remove('hidden');
+  document.getElementById('calc-table-body').innerHTML = data.plan.map(r => {
+    const sl  = (+r.service_level||0)*100;
+    const occ = (+r.occupancy||0)*100;
+    return `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-4 py-2 font-medium text-slate-700">${r.interval}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${(+r.calls||0).toLocaleString()}</td>
+      <td class="px-4 py-2 text-center font-mono text-slate-400 text-xs">${r.traffic_intensity||0}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${r.productive_agents||0}</td>
+      <td class="px-4 py-2 text-center font-bold text-indigo-600">${r.gross_agents||0}</td>
+      <td class="px-4 py-2 text-center ${slClass(sl)}">${sl.toFixed(1)}%</td>
+      <td class="px-4 py-2 text-center text-slate-500">${r.asa_seconds||0}s</td>
+      <td class="px-4 py-2 text-center ${ocClass(occ)}">${occ.toFixed(1)}%</td>
+      <td class="px-4 py-2 text-center text-slate-400">${r.trunks_needed||0}</td>
     </tr>`;
   }).join('');
-
-  el.innerHTML = kpis + `<div class="card"><div class="card-header">Plan de Dotación por Intervalo</div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Intervalo</th><th>Llamadas</th><th>Erlangs</th><th>Ag. Prod.</th><th>Ag. Brutos</th><th>Nivel Servicio</th><th>ASA</th><th>Ocupación</th><th>Troncales</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table></div></div>`;
 }
 
-function renderOutbound(el, data) {
-  const r = data.result;
-  const compliantColor = r.abandonment_compliant ? '#C6EFCE' : '#FFC7CE';
-  el.innerHTML = `<div class="grid grid-3" style="margin-bottom:16px;">
-    <div class="kpi"><div class="kpi-label">Agentes Productivos</div><div class="kpi-value" style="color:var(--orange)">${r.productive_agents}</div><div class="kpi-sub">Modo: ${r.dial_mode}</div></div>
-    <div class="kpi"><div class="kpi-label">Contactos Persona Correcta</div><div class="kpi-value">${(r.right_party_contacts||0).toLocaleString()}</div></div>
-    <div class="kpi"><div class="kpi-label">Marcaciones Totales</div><div class="kpi-value">${(r.total_dials_needed||0).toLocaleString()}</div></div>
-    <div class="kpi"><div class="kpi-label">Abandono Estimado</div><div class="kpi-value" style="background:${compliantColor};border-radius:6px;padding:2px 8px;">${(r.estimated_abandonment_pct||0).toFixed(2)}%</div><div class="kpi-sub">Máx: ${r.max_abandonment_pct}%</div></div>
-    <div class="kpi"><div class="kpi-label">Horas de Campaña Est.</div><div class="kpi-value">${(r.estimated_campaign_hours||0).toFixed(1)}h</div></div>
-    <div class="kpi"><div class="kpi-label">Contactos/hora</div><div class="kpi-value">${r.hourly_right_party_contacts||0}</div></div>
-  </div>
-  <div class="card"><div class="card-header orange">Comparativa de Modos de Marcación</div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Modo</th><th>Agentes</th><th>Abandono Est.</th><th>Horas campaña</th><th>Riesgo abandono</th><th>¿Cumple norma?</th></tr></thead>
-    <tbody>${(data.comparison||[]).map((m,i) =>
-      `<tr class="${i%2===0?'row-alt':''}">
-        <td><b>${m.mode}</b><br><small style="color:#888">${m.description}</small></td>
-        <td>${m.productive_agents}</td>
-        <td>${m.est_abandonment_pct}%</td>
-        <td>${m.campaign_hours}h</td>
-        <td>${m.abandonment_risk}</td>
-        <td class="${m.compliant?'sl-good':'sl-bad'}">${m.compliant?'✓ Sí':'✗ No'}</td>
-      </tr>`).join('')}
-    </tbody></table></div></div>`;
+function renderOutbound(data) {
+  const r = data.result; const ok = r.abandonment_compliant;
+  document.getElementById('calc-kpis').innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes productivos</p>
+        <p class="text-2xl font-bold text-indigo-600 mt-1">${r.productive_agents||0}</p>
+        <p class="text-xs text-slate-400">Modo: ${r.dial_mode||''}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Contactos persona correcta</p>
+        <p class="text-2xl font-bold text-slate-800 mt-1">${(+r.right_party_contacts||0).toLocaleString()}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Abandono estimado</p>
+        <p class="text-2xl font-bold ${ok?'text-emerald-600':'text-red-600'} mt-1">${(+r.estimated_abandonment_pct||0).toFixed(2)}%</p>
+        <p class="text-xs text-slate-400">Máx: ${r.max_abandonment_pct}%</p>
+      </div>
+    </div>`;
+  document.getElementById('calc-kpis').classList.remove('hidden');
+  document.getElementById('calc-table-card').classList.remove('hidden');
+  document.getElementById('calc-table-body').innerHTML = (data.comparison||[]).map(m =>
+    `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-4 py-2 font-medium text-slate-700">${m.mode}</td>
+      <td class="px-4 py-2 text-slate-500 text-xs">${m.description}</td>
+      <td class="px-4 py-2 text-center font-bold text-indigo-600">${m.productive_agents}</td>
+      <td class="px-4 py-2 text-center">${m.est_abandonment_pct}%</td>
+      <td class="px-4 py-2 text-center">${m.campaign_hours}h</td>
+      <td class="px-4 py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${m.compliant?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'}">${m.compliant?'✓ Sí':'✗ No'}</span></td>
+    </tr>`).join('');
+  // Reemplazar encabezados de tabla
+  document.querySelector('#calc-table-card thead tr').innerHTML =
+    '<th class="text-left px-4 py-3">Modo</th><th class="text-left px-4 py-3">Descripción</th><th class="text-center px-4 py-3">Agentes</th><th class="text-center px-4 py-3">Abandono</th><th class="text-center px-4 py-3">Horas</th><th class="text-center px-4 py-3">Cumple</th>';
 }
 
-function renderChat(el, data) {
+function renderChat(data) {
   const s = data.summary;
-  el.innerHTML = `<div class="grid grid-4" style="margin-bottom:16px;">
-    <div class="kpi"><div class="kpi-label">Agentes Brutos</div><div class="kpi-value" style="color:#1E7B1E">${s.gross_agents}</div></div>
-    <div class="kpi"><div class="kpi-label">Concurrencia</div><div class="kpi-value">${s.max_concurrency} chats/ag</div></div>
-    <div class="kpi ${s.service_level>=0.80?'good':'warn'}"><div class="kpi-label">Nivel Servicio</div><div class="kpi-value">${((s.service_level||0)*100).toFixed(1)}%</div></div>
-    <div class="kpi"><div class="kpi-label">Sesiones Simultáneas</div><div class="kpi-value">${s.avg_concurrent_sessions||0}</div></div>
-  </div>
-  <div class="card"><div class="card-header green">Impacto de la Concurrencia</div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Chats/Agente</th><th>Ag. Prod.</th><th>Ag. Brutos</th><th>Nivel Servicio</th><th>Ocupación</th></tr></thead>
-    <tbody>${(data.sensitivity||[]).map((r,i)=>
-      `<tr class="${i%2===0?'row-alt':''}">
-        <td>${r.concurrency}</td><td>${r.productive_agents}</td><td>${r.gross_agents}</td>
-        <td class="${r.service_level_pct>=80?'sl-good':r.service_level_pct>=70?'sl-warn':'sl-bad'}">${r.service_level_pct}%</td>
-        <td class="${r.occupancy_pct<=80?'occ-good':r.occupancy_pct<=90?'occ-warn':'occ-bad'}">${r.occupancy_pct}%</td>
-      </tr>`).join('')}
-    </tbody></table></div></div>
-  <div class="card"><div class="card-header green">Plan por Intervalo</div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Intervalo</th><th>Sesiones</th><th>Ag. Prod.</th><th>Ag. Brutos</th><th>NS</th><th>Ocupación</th></tr></thead>
-    <tbody>${(data.plan||[]).map((r,i)=>
-      `<tr class="${i%2===0?'row-alt':''}">
-        <td>${r.interval}</td><td>${r.sessions_per_interval||0}</td>
-        <td>${r.productive_agents}</td><td>${r.gross_agents}</td>
-        <td class="${r.service_level>=0.80?'sl-good':r.service_level>=0.70?'sl-warn':'sl-bad'}">${((r.service_level||0)*100).toFixed(1)}%</td>
-        <td class="${r.occupancy<=0.80?'occ-good':r.occupancy<=0.90?'occ-warn':'occ-bad'}">${((r.occupancy||0)*100).toFixed(1)}%</td>
-      </tr>`).join('')}
-    </tbody></table></div></div>`;
+  const slC = s.service_level>=.8?'text-emerald-600':s.service_level>=.7?'text-amber-600':'text-red-600';
+  document.getElementById('calc-kpis').innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes productivos</p>
+        <p class="text-2xl font-bold text-indigo-600 mt-1">${s.productive_agents||0}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes brutos</p>
+        <p class="text-2xl font-bold text-slate-800 mt-1">${s.gross_agents||0}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Nivel servicio</p>
+        <p class="text-2xl font-bold ${slC} mt-1">${((+s.service_level||0)*100).toFixed(1)}%</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Sesiones simult.</p>
+        <p class="text-2xl font-bold text-slate-800 mt-1">${s.avg_concurrent_sessions||0}</p>
+      </div>
+    </div>`;
+  document.getElementById('calc-kpis').classList.remove('hidden');
 }
 
-// ─── Export ───────────────────────────────────────────────────────────────────
+// ── Export ────────────────────────────────────────────────────────────────────
 async function exportReport() {
-  if(!lastResult) return;
+  if (!lastResult) return;
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/export`, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(lastResult)
-  });
-  if(r.ok) {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(lastResult) });
+  if (r.ok) {
     const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = r.headers.get('Content-Disposition')?.split('filename=')[1] || 'report.xlsx';
+    a.href = URL.createObjectURL(blob);
+    a.download = r.headers.get('Content-Disposition')?.split('filename=')[1] || 'report.xlsx';
     a.click();
   }
 }
 
-// ─── Forecast ─────────────────────────────────────────────────────────────────
+// ── Forecast ──────────────────────────────────────────────────────────────────
 async function runForecast() {
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/forecast`, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       forecast_days: document.getElementById('fc-days').value,
-      method: document.getElementById('fc-method').value,
-      growth_rate: document.getElementById('fc-growth').value,
+      method:        document.getElementById('fc-method').value,
+      growth_rate:   document.getElementById('fc-growth').value,
     })
   });
   const data = await r.json();
-  const el = document.getElementById('forecast-result');
-  const rows = (data.daily_forecasts||[]).map((d,i)=>
-    `<tr class="${i%2===0?'row-alt':''}"><td>${d.day}</td><td><b>${d.day_name}</b></td><td>${(d.forecast_volume||0).toLocaleString()}</td><td>${d.dow_factor}</td></tr>`
-  ).join('');
-  el.innerHTML = `<div class="card" style="margin-top:16px;">
-    <div class="card-header">Pronóstico ${data.forecast_days||''} días — Base: ${(data.base_daily_forecast||0).toLocaleString()} calls/día (${data.method})</div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Día</th><th>Día semana</th><th>Volumen pronosticado</th><th>Factor DoW</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div></div>`;
+  const rows = (data.daily_forecasts||[]).map(d =>
+    `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-4 py-2 text-center text-slate-400">${d.day}</td>
+      <td class="px-4 py-2 font-medium text-slate-700">${d.day_name}</td>
+      <td class="px-4 py-2 text-center font-bold text-indigo-600 font-mono">${(+d.forecast_volume||0).toLocaleString()}</td>
+      <td class="px-4 py-2 text-center text-slate-400">${d.dow_factor}</td>
+    </tr>`).join('');
+  document.getElementById('forecast-result').innerHTML = `
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <h3 class="text-sm font-semibold text-slate-700">Pronóstico — base ${(+data.base_daily_forecast||0).toLocaleString()} / día · ${data.method}</h3>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+          <tr><th class="text-center px-4 py-3">Día</th><th class="text-left px-4 py-3">Día semana</th><th class="text-center px-4 py-3">Volumen</th><th class="text-center px-4 py-3">Factor DoW</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">${rows}</tbody>
+      </table></div>
+    </div>`;
 }
 
-// ─── Sensitivity ──────────────────────────────────────────────────────────────
+// ── Sensitivity ───────────────────────────────────────────────────────────────
 async function runSensitivity() {
-  const calls = document.getElementById('sens-calls').value;
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/sensitivity`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ calls: parseFloat(calls) })
+    body: JSON.stringify({ calls: parseFloat(document.getElementById('sens-calls').value) })
   });
   const data = await r.json();
-  const rows = data.map((r,i)=>
-    `<tr class="${r.meets_target?'':'sl-bad'} ${i%2===0?'row-alt':''}">
-      <td>${r.productive_agents}${r.meets_target?'':' ⚠'}</td>
-      <td>${r.gross_agents}</td>
-      <td class="${r.service_level>=80?'sl-good':r.service_level>=70?'sl-warn':'sl-bad'}">${r.service_level}%</td>
-      <td>${r.asa_seconds}s</td>
-      <td class="${r.occupancy<=85?'occ-good':r.occupancy<=90?'occ-warn':'occ-bad'}">${r.occupancy}%</td>
+  const rows = data.map(r =>
+    `<tr class="hover:bg-slate-50 transition-colors ${!r.meets_target?'bg-red-50':''}">
+      <td class="px-4 py-2 text-center font-medium ${r.meets_target?'text-slate-700':'text-red-600'}">${r.productive_agents}${r.meets_target?'':' ⚠'}</td>
+      <td class="px-4 py-2 text-center font-bold text-indigo-600">${r.gross_agents}</td>
+      <td class="px-4 py-2 text-center ${slClass(r.service_level)}">${r.service_level}%</td>
+      <td class="px-4 py-2 text-center text-slate-500">${r.asa_seconds}s</td>
+      <td class="px-4 py-2 text-center ${ocClass(r.occupancy)}">${r.occupancy}%</td>
     </tr>`).join('');
-  document.getElementById('sensitivity-result').innerHTML =
-    `<div class="card" style="margin-top:16px;"><div class="card-header">Sensibilidad — ${calls} llamadas/${INTERVAL_MINUTES}min</div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Ag. Prod.</th><th>Ag. Brutos</th><th>Nivel Servicio</th><th>ASA</th><th>Ocupación</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div></div>`;
+  document.getElementById('sensitivity-result').innerHTML = `
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100"><h3 class="text-sm font-semibold text-slate-700">Sensibilidad — ${document.getElementById('sens-calls').value} llamadas / ${INTERVAL_MINUTES}min</h3></div>
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+          <tr><th class="text-center px-4 py-3">Ag. Prod.</th><th class="text-center px-4 py-3">Ag. Brutos</th><th class="text-center px-4 py-3">Nivel Servicio</th><th class="text-center px-4 py-3">ASA</th><th class="text-center px-4 py-3">Ocupación</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">${rows}</tbody>
+      </table></div>
+    </div>`;
 }
 
-// ─── Historical ───────────────────────────────────────────────────────────────
+// ── Historical ────────────────────────────────────────────────────────────────
 function addHistRow() {
-  const div = document.createElement('div');
-  div.className = 'form-row hist-row';
-  div.style.marginBottom = '6px';
-  div.innerHTML = `<input type="date" class="hist-date" style="flex:1;"><input type="number" class="hist-vol" placeholder="Volumen" style="flex:1;" min="0">`;
-  document.getElementById('hist-rows').appendChild(div);
+  const d = document.createElement('div'); d.className = 'hist-row flex gap-2';
+  d.innerHTML = `<input type="date" class="hist-date flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-400">
+    <input type="number" class="hist-vol flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-400" placeholder="Volumen" min="0">`;
+  document.getElementById('hist-rows').appendChild(d);
 }
 
 async function saveHistorical() {
   const records = [];
   document.querySelectorAll('.hist-row').forEach(row => {
-    const date = row.querySelector('.hist-date').value;
-    const vol = row.querySelector('.hist-vol').value;
-    if(date && vol) records.push({ date, volume: parseFloat(vol) });
+    const date = row.querySelector('.hist-date')?.value;
+    const vol  = row.querySelector('.hist-vol')?.value;
+    if (date && vol) records.push({ date, volume: parseFloat(vol) });
   });
-  if(!records.length) return;
+  if (!records.length) return;
   await fetch(`/campaigns/${CAMPAIGN_ID}/historical`, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ records })
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ records })
   });
-  alert(`${records.length} registro(s) histórico(s) guardados.`);
+  alert(`${records.length} registro(s) guardados.`);
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 buildGrid(currentVolumes);
-initChart();
-updateChart();
+initVolChart();
+updateVolChart();
+buildHeatmap();
 </script>
 {% endblock %}
