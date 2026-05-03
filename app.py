@@ -188,7 +188,7 @@ def delete_campaign(campaign_id):
 
 # ─── Volume Input ──────────────────────────────────────────────────────────────
 
-@app.route("/campaigns/<int:campaign_id>/volumes", methods=["POST"])
+@app.route("/campaigns/<int:campaign_id>/volumes", methods=["GET", "POST"])
 def save_volumes(campaign_id):
     db = SessionLocal()
     campaign = db.get(Campaign, campaign_id)
@@ -196,7 +196,21 @@ def save_volumes(campaign_id):
         db.close()
         return jsonify({"error": "not found"}), 404
 
-    data = request.json
+    if request.method == "GET":
+        day_type = request.args.get("day_type", "weekday")
+        labels = interval_labels(campaign.interval_minutes)
+        volumes = [0.0] * len(labels)
+        intervals = db.query(IntervalVolume).filter(
+            IntervalVolume.campaign_id == campaign_id,
+            IntervalVolume.day_type == day_type
+        ).order_by(IntervalVolume.interval_index).all()
+        for iv in intervals:
+            if iv.interval_index < len(volumes):
+                volumes[iv.interval_index] = iv.volume
+        db.close()
+        return jsonify({"day_type": day_type, "volumes": volumes})
+
+    data = request.json or {}
     volumes = data.get("volumes", [])
     day_type = data.get("day_type", "weekday")
 

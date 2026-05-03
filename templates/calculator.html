@@ -144,14 +144,44 @@
 </div>
 
 <script>
+function showInlineError(containerId, message){
+  document.getElementById(containerId).innerHTML = `
+    <div class="m-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">${message}</div>
+  `;
+}
+
+function getNumber(id, fallback = 0){
+  const value = parseFloat(document.getElementById(id).value);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 async function calcErlang(){
+  const calls = getNumber('ec-calls');
+  const aht = getNumber('ec-aht');
+  if (calls <= 0 || aht <= 0) {
+    showInlineError('erlang-result', 'Ingresa valores válidos de llamadas y AHT mayores a 0.');
+    return;
+  }
+
+  const button = document.querySelector('button[onclick="calcErlang()"]');
+  button.disabled = true;
+  button.classList.add('opacity-60', 'cursor-not-allowed');
+
   const r=await fetch('/api/erlang',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    mode:'inbound',calls:document.getElementById('ec-calls').value,aht:document.getElementById('ec-aht').value,
-    interval:document.getElementById('ec-interval').value,target_sl:document.getElementById('ec-sl').value,
-    target_seconds:document.getElementById('ec-target').value,max_occupancy:document.getElementById('ec-occ').value,
-    shrinkage:document.getElementById('ec-shrink').value
+    mode:'inbound',calls,aht,
+    interval:getNumber('ec-interval'),target_sl:getNumber('ec-sl'),
+    target_seconds:getNumber('ec-target'),max_occupancy:getNumber('ec-occ'),
+    shrinkage:getNumber('ec-shrink')
   })});
   const d=await r.json();
+  button.disabled = false;
+  button.classList.remove('opacity-60', 'cursor-not-allowed');
+
+  if (!r.ok || d.error) {
+    showInlineError('erlang-result', d.error || 'No fue posible calcular Erlang C.');
+    return;
+  }
+
   const sl=(+d.service_level||0)*100, occ=(+d.occupancy||0)*100;
   const slC=sl>=80?'text-emerald-600':sl>=70?'text-amber-500':'text-red-600';
   const ocC=occ<=85?'text-emerald-600':occ<=90?'text-amber-500':'text-red-600';
@@ -167,9 +197,22 @@ async function calcErlang(){
 }
 
 async function calcTrunks(){
+  const traffic = getNumber('eb-traffic');
+  const blocking = getNumber('eb-blocking');
+  if (traffic <= 0 || blocking <= 0) {
+    showInlineError('trunk-result', 'Ingresa tráfico y bloqueo máximo válidos (mayores a 0).');
+    return;
+  }
+
   const r=await fetch('/api/erlang',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    mode:'trunks',traffic:document.getElementById('eb-traffic').value,blocking:document.getElementById('eb-blocking').value})});
+    mode:'trunks',traffic,blocking})});
   const d=await r.json();
+
+  if (!r.ok || d.error) {
+    showInlineError('trunk-result', d.error || 'No fue posible calcular troncales.');
+    return;
+  }
+
   document.getElementById('trunk-result').innerHTML=`
     <div class="bg-slate-50 rounded-xl p-4 text-center">
       <p class="text-xs text-slate-500 uppercase">Troncales necesarias</p>
@@ -183,5 +226,16 @@ function convertTraffic(){
   document.getElementById('conv-result').textContent=`Tráfico: ${erl.toFixed(3)} Erlangs`;
 }
 convertTraffic();
+
+document.querySelectorAll('input').forEach((input) => {
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    if (input.id.startsWith('ec-')) {
+      calcErlang();
+    } else if (input.id.startsWith('eb-')) {
+      calcTrunks();
+    }
+  });
+});
 </script>
 {% endblock %}

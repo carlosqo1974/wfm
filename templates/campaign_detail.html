@@ -83,7 +83,13 @@
     </button>
     <button onclick="switchTab('forecast')" id="btn-forecast"
             class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      {% if campaign.campaign_type == 'inbound' %}
       Dimensionado Erlang C
+      {% elif campaign.campaign_type == 'outbound' %}
+      Capacidad outbound
+      {% else %}
+      Dimensionado chat
+      {% endif %}
     </button>
     <button onclick="switchTab('volumes')" id="btn-volumes"
             class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
@@ -146,6 +152,16 @@
        TAB: DIMENSIONADO ERLANG C
   ══════════════════════════════════════════════════════════════════════ -->
   <div id="tab-forecast" class="space-y-4 hidden">
+
+    <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded-lg px-4 py-3 text-sm">
+      {% if campaign.campaign_type == 'inbound' %}
+      Módulo entrante: calcula agentes por intervalo usando Erlang C, nivel de servicio y ocupación objetivo.
+      {% elif campaign.campaign_type == 'outbound' %}
+      Módulo saliente: estima capacidad por modo de marcación y cumplimiento de abandono.
+      {% else %}
+      Módulo chat: estima agentes por intervalo considerando concurrencia, nivel de respuesta y ocupación.
+      {% endif %}
+    </div>
 
     <div class="flex items-center gap-3 flex-wrap">
       <select id="calc-day-type"
@@ -360,6 +376,7 @@ const CAMPAIGN_TYPE    = "{{ campaign.campaign_type }}";
 const INTERVAL_MINUTES = {{ campaign.interval_minutes }};
 const LABELS = {{ labels | tojson }};
 let currentVolumes = {{ volumes | tojson }};
+let volumesByDay = { weekday: [...currentVolumes], saturday: [], sunday: [] };
 let volChart = null;
 let erlangChart = null;
 let lastResult = null;
@@ -523,6 +540,7 @@ function distributeVolume() {
 
 async function saveVolumes() {
   const dt = document.getElementById('day-type-sel').value;
+  volumesByDay[dt] = [...currentVolumes];
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/volumes`, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ volumes: currentVolumes, day_type: dt })
@@ -534,7 +552,22 @@ async function saveVolumes() {
   buildHeatmap();
 }
 
-function loadVolumes() { buildGrid(currentVolumes); updateVolChart(); }
+async function loadVolumes() {
+  const dt = document.getElementById('day-type-sel').value;
+  if (volumesByDay[dt] && volumesByDay[dt].length === LABELS.length) {
+    currentVolumes = [...volumesByDay[dt]];
+    buildGrid(currentVolumes);
+    updateVolChart();
+    return;
+  }
+
+  const r = await fetch(`/campaigns/${CAMPAIGN_ID}/volumes?day_type=${dt}`);
+  const data = await r.json();
+  currentVolumes = Array.isArray(data.volumes) ? data.volumes : Array(LABELS.length).fill(0);
+  volumesByDay[dt] = [...currentVolumes];
+  buildGrid(currentVolumes);
+  updateVolChart();
+}
 
 // ── Volume chart ──────────────────────────────────────────────────────────────
 function initVolChart() {
@@ -741,6 +774,64 @@ function renderChat(data) {
       </div>
     </div>`;
   document.getElementById('calc-kpis').classList.remove('hidden');
+
+  const plan = (data.plan || []).filter(r => (r.sessions_per_interval || 0) > 0 || (r.gross_agents || 0) > 0);
+
+  document.getElementById('chart-card').classList.remove('hidden');
+  if (erlangChart) erlangChart.destroy();
+  erlangChart = new Chart(document.getElementById('erlang-chart').getContext('2d'), {
+    data: {
+      labels: plan.map(r => r.interval),
+      datasets: [
+        {
+          type: 'bar', label: 'Agentes brutos',
+          data: plan.map(r => r.gross_agents || 0),
+          backgroundColor: 'rgba(99,102,241,0.75)',
+          borderRadius: 3, yAxisID: 'y', order: 2,
+        },
+        {
+          type: 'bar', label: 'Agentes productivos',
+          data: plan.map(r => r.productive_agents || 0),
+          backgroundColor: 'rgba(99,102,241,0.25)',
+          borderRadius: 3, yAxisID: 'y', order: 3,
+        },
+        {
+          type: 'line', label: 'Sesiones/intervalo',
+          data: plan.map(r => r.sessions_per_interval || 0),
+          borderColor: 'rgba(16,185,129,0.9)',
+          backgroundColor: 'rgba(16,185,129,0.08)',
+          tension: 0.35, fill: true, yAxisID: 'y2', order: 1, pointRadius: 2,
+        }
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        y:  { position: 'left',  title: { display: true, text: 'Agentes' }, beginAtZero: true, ticks: { stepSize: 1 } },
+        y2: { position: 'right', title: { display: true, text: 'Sesiones' }, beginAtZero: true, grid: { drawOnChartArea: false } },
+      },
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } },
+    },
+  });
+
+  document.getElementById('calc-table-card').classList.remove('hidden');
+  document.querySelector('#calc-table-card thead tr').innerHTML =
+    '<th class="text-left px-4 py-3">Intervalo</th><th class="text-center px-4 py-3">Sesiones</th><th class="text-center px-4 py-3">Erlangs</th><th class="text-center px-4 py-3">Ag. productivos</th><th class="text-center px-4 py-3">Ag. brutos</th><th class="text-center px-4 py-3">NS</th><th class="text-center px-4 py-3">Ocupación</th><th class="text-center px-4 py-3">Concurrencia</th>';
+  document.getElementById('calc-table-body').innerHTML = plan.map(r => {
+    const sl = (+r.service_level || 0) * 100;
+    const occ = (+r.occupancy || 0) * 100;
+    return `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-4 py-2 font-medium text-slate-700">${r.interval}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${(+r.sessions_per_interval || 0).toFixed(0)}</td>
+      <td class="px-4 py-2 text-center font-mono text-slate-400 text-xs">${r.traffic_intensity || 0}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${r.productive_agents || 0}</td>
+      <td class="px-4 py-2 text-center font-bold text-indigo-600">${r.gross_agents || 0}</td>
+      <td class="px-4 py-2 text-center ${slClass(sl)}">${sl.toFixed(1)}%</td>
+      <td class="px-4 py-2 text-center ${ocClass(occ)}">${occ.toFixed(1)}%</td>
+      <td class="px-4 py-2 text-center text-slate-500">${r.max_concurrency || 0}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
@@ -841,6 +932,7 @@ async function saveHistorical() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildGrid(currentVolumes);
 initVolChart();
+loadVolumes();
 updateVolChart();
 buildHeatmap();
 </script>
