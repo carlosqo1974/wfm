@@ -18,6 +18,7 @@ from calculations.inbound import build_interval_plan, summary_stats, sensitivity
 from calculations.outbound import agents_needed, build_outbound_interval_plan, compare_dial_modes
 from calculations.chat import agents_for_chat, build_chat_interval_plan, concurrency_sensitivity
 from calculations.forecast import forecast_volume, shrinkage_components
+from calculations.peru_shifts import dimension_shifts_peru
 
 app = Flask(__name__)
 app.secret_key = "wfm-standalone-secret-2024"
@@ -355,6 +356,24 @@ def calculate(campaign_id):
         }
 
     db.close()
+    return jsonify(result)
+
+
+@app.route("/campaigns/<int:campaign_id>/shift-plan-peru", methods=["POST"])
+def shift_plan_peru(campaign_id):
+    db = SessionLocal()
+    campaign = db.get(Campaign, campaign_id)
+    db.close()
+    if not campaign:
+        return jsonify({"error": "not found"}), 404
+
+    data = request.json or {}
+    plan = data.get("plan", [])
+    interval_minutes = int(data.get("interval_minutes", campaign.interval_minutes or 30))
+    if not plan:
+        return jsonify({"error": "plan vacío"}), 400
+
+    result = dimension_shifts_peru(plan, interval_minutes)
     return jsonify(result)
 
 

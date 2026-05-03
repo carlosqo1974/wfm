@@ -105,6 +105,10 @@
       Sensibilidad
     </button>
     {% endif %}
+    <button onclick="switchTab('turnos-peru')" id="btn-turnos-peru"
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      Turnos Perú
+    </button>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
@@ -146,6 +150,19 @@
     <!-- Mejor hora por día -->
     <div id="best-hours" class="grid grid-cols-2 sm:grid-cols-4 gap-3 hidden">
     </div>
+  </div>
+
+  <div id="tab-turnos-peru" class="space-y-4 hidden">
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-700">Dimensionamiento de turnos (Perú)</h3>
+          <p class="text-xs text-slate-500">Basado en jornada máxima de 8h/día y 48h/semana (referencial).</p>
+        </div>
+        <button onclick="generatePeruShifts()" class="text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Generar turnos</button>
+      </div>
+    </div>
+    <div id="peru-shifts-result" class="hidden"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
@@ -383,7 +400,7 @@ let lastResult = null;
 let heatMode = 'volume';
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const ALL_TABS = ['heatmap','forecast','volumes','pronostico'{% if campaign.campaign_type == 'inbound' %},'sensitivity'{% endif %}];
+const ALL_TABS = ['heatmap','forecast','volumes','pronostico','turnos-peru'{% if campaign.campaign_type == 'inbound' %},'sensitivity'{% endif %}];
 
 function switchTab(name) {
   ALL_TABS.forEach(id => {
@@ -846,6 +863,44 @@ async function exportReport() {
     a.download = r.headers.get('Content-Disposition')?.split('filename=')[1] || 'report.xlsx';
     a.click();
   }
+}
+
+async function generatePeruShifts() {
+  if (!lastResult) {
+    alert('Primero ejecuta el cálculo de dotación.');
+    return;
+  }
+
+  let basePlan = [];
+  if (lastResult.type === 'outbound') {
+    basePlan = (lastResult.hourly_plan || []).map((r) => ({ interval: r.hour || r.interval, required_agents: r.gross_agents || r.productive_agents || 0 }));
+  } else {
+    basePlan = (lastResult.plan || []).map((r) => ({ interval: r.interval, required_agents: r.gross_agents || 0 }));
+  }
+
+  const r = await fetch(`/campaigns/${CAMPAIGN_ID}/shift-plan-peru`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ plan: basePlan, interval_minutes: INTERVAL_MINUTES })
+  });
+  const data = await r.json();
+  if (!r.ok || data.error) {
+    alert(data.error || 'No fue posible generar turnos.');
+    return;
+  }
+
+  const target = document.getElementById('peru-shifts-result');
+  target.classList.remove('hidden');
+  target.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Pico agentes</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.peak_agents}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Líneas de turno</p><p class="text-2xl font-bold text-indigo-600 mt-1">${data.summary.total_shift_lines}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Pool sugerido</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.suggested_fte_pool}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Horas/semana</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.weekly_hours_per_agent}</p></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="text-left px-4 py-3">Turno</th><th class="text-center px-4 py-3">Inicio</th><th class="text-center px-4 py-3">Fin</th><th class="text-center px-4 py-3">Agentes</th><th class="text-center px-4 py-3">Descanso</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">${(data.recommended_shifts||[]).map(s=>`<tr><td class="px-4 py-2 font-medium">${s.name}</td><td class="px-4 py-2 text-center">${s.start}</td><td class="px-4 py-2 text-center">${s.end}</td><td class="px-4 py-2 text-center font-bold text-indigo-600">${s.agents}</td><td class="px-4 py-2 text-center">${s.break_minutes} min</td></tr>`).join('')}</tbody></table>
+    </div>`;
 }
 
 // ── Forecast ──────────────────────────────────────────────────────────────────
