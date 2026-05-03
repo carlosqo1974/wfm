@@ -83,7 +83,13 @@
     </button>
     <button onclick="switchTab('forecast')" id="btn-forecast"
             class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+      {% if campaign.campaign_type == 'inbound' %}
       Dimensionado Erlang C
+      {% elif campaign.campaign_type == 'outbound' %}
+      Capacidad outbound
+      {% else %}
+      Dimensionado chat
+      {% endif %}
     </button>
     <button onclick="switchTab('volumes')" id="btn-volumes"
             class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
@@ -146,6 +152,16 @@
        TAB: DIMENSIONADO ERLANG C
   ══════════════════════════════════════════════════════════════════════ -->
   <div id="tab-forecast" class="space-y-4 hidden">
+
+    <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded-lg px-4 py-3 text-sm">
+      {% if campaign.campaign_type == 'inbound' %}
+      Módulo entrante: calcula agentes por intervalo usando Erlang C, nivel de servicio y ocupación objetivo.
+      {% elif campaign.campaign_type == 'outbound' %}
+      Módulo saliente: estima capacidad por modo de marcación y cumplimiento de abandono.
+      {% else %}
+      Módulo chat: estima agentes por intervalo considerando concurrencia, nivel de respuesta y ocupación.
+      {% endif %}
+    </div>
 
     <div class="flex items-center gap-3 flex-wrap">
       <select id="calc-day-type"
