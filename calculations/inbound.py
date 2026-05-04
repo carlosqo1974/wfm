@@ -3,13 +3,13 @@ Inbound campaign staffing module.
 Handles voice inbound campaigns with interval-level granularity.
 """
 import math
-from typing import List, Dict
+from typing import List, Dict, Union, Optional
 from .erlang import agents_for_service_level, service_level, average_speed_of_answer, occupancy, erlang_b
 
 
 def build_interval_plan(
     interval_volumes: List[float],
-    aht_seconds: float,
+    aht_seconds: Union[float, List[Optional[float]]],
     interval_minutes: int,
     target_sl: float,
     target_seconds: float,
@@ -20,8 +20,8 @@ def build_interval_plan(
     """
     Build a full interval staffing plan for inbound campaign.
 
-    interval_volumes: list of call volumes per interval (e.g., 48 values for 30-min intervals in 24h)
-    aht_seconds: average handle time in seconds (talk + hold + wrap)
+    interval_volumes: call volumes per interval (e.g., 48 values for 30-min intervals in 24h)
+    aht_seconds: uniform AHT as float, or per-interval list (None entries fall back to list mean)
     interval_minutes: interval length in minutes (15, 30, or 60)
     target_sl: service level target (e.g., 0.80)
     target_seconds: answer within N seconds (e.g., 20)
@@ -29,6 +29,20 @@ def build_interval_plan(
     max_occupancy: max agent occupancy (e.g., 0.85)
     trunk_blocking_target: max acceptable blocking for trunk calc (e.g., 0.02)
     """
+    # Resolve per-interval AHT list; fallback value = mean of provided values or 180 s
+    _per_interval = isinstance(aht_seconds, (list, tuple))
+    if _per_interval:
+        _known = [v for v in aht_seconds if v is not None]
+        _fallback = sum(_known) / len(_known) if _known else 180.0
+    else:
+        _fallback = float(aht_seconds)
+
+    def _eff_aht(i: int) -> float:
+        if not _per_interval:
+            return _fallback
+        v = aht_seconds[i] if i < len(aht_seconds) else None
+        return float(v) if v is not None else _fallback
+
     interval_seconds = interval_minutes * 60
     results = []
 
@@ -36,11 +50,13 @@ def build_interval_plan(
         hour = (i * interval_minutes) // 60
         minute = (i * interval_minutes) % 60
         interval_label = f"{hour:02d}:{minute:02d}"
+        eff_aht = _eff_aht(i)
 
         if volume <= 0:
             results.append({
                 "interval": interval_label,
                 "calls": 0,
+                "aht_seconds": round(eff_aht, 1),
                 "traffic_intensity": 0,
                 "productive_agents": 0,
                 "gross_agents": 0,
@@ -53,7 +69,7 @@ def build_interval_plan(
 
         staffing = agents_for_service_level(
             calls_per_interval=volume,
-            aht_seconds=aht_seconds,
+            aht_seconds=eff_aht,
             interval_seconds=interval_seconds,
             target_sl=target_sl,
             target_seconds=target_seconds,
@@ -69,6 +85,7 @@ def build_interval_plan(
         results.append({
             "interval": interval_label,
             "calls": round(volume, 1),
+            "aht_seconds": round(eff_aht, 1),
             "traffic_intensity": staffing["traffic_intensity"],
             "productive_agents": staffing["productive_agents"],
             "gross_agents": staffing["gross_agents"],

@@ -245,12 +245,22 @@
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <h3 class="text-sm font-semibold text-slate-700">Perfil de volumen</h3>
-          <select id="day-type-sel" onchange="loadVolumes()"
-                  class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400">
-            <option value="weekday">Día hábil</option>
-            <option value="saturday">Sábado</option>
-            <option value="sunday">Domingo</option>
-          </select>
+          <div class="flex items-center gap-2">
+            <button onclick="openImportModal('interval_volumes')"
+                    class="flex items-center gap-1.5 text-xs px-2.5 py-1 border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Importar desde BD
+            </button>
+            <select id="day-type-sel" onchange="loadVolumes()"
+                    class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400">
+              <option value="weekday">Día hábil</option>
+              <option value="saturday">Sábado</option>
+              <option value="sunday">Domingo</option>
+            </select>
+          </div>
         </div>
         <div class="p-4">
           <p class="text-xs text-slate-400 mb-3">
@@ -294,8 +304,16 @@
 
     <!-- Histórico -->
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
         <h3 class="text-sm font-semibold text-slate-700">Datos históricos <span class="text-xs font-normal text-slate-400">(para pronóstico)</span></h3>
+        <button onclick="openImportModal('historical_volumes')"
+                class="flex items-center gap-1.5 text-xs px-2.5 py-1 border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Importar desde BD
+        </button>
       </div>
       <div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
         <div class="p-4">
@@ -878,9 +896,10 @@ async function generatePeruShifts() {
     basePlan = (lastResult.plan || []).map((r) => ({ interval: r.interval, required_agents: r.gross_agents || 0 }));
   }
 
+  const dayType = lastResult.day_type || 'weekday';
   const r = await fetch(`/campaigns/${CAMPAIGN_ID}/shift-plan-peru`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ plan: basePlan, interval_minutes: INTERVAL_MINUTES })
+    body: JSON.stringify({ plan: basePlan, interval_minutes: INTERVAL_MINUTES, day_type: dayType })
   });
   const data = await r.json();
   if (!r.ok || data.error) {
@@ -890,17 +909,233 @@ async function generatePeruShifts() {
 
   const target = document.getElementById('peru-shifts-result');
   target.classList.remove('hidden');
+
+  // palette for shift bars
+  const SHIFT_COLORS = [
+    '#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6',
+  ];
+
+  // Cobertura neta por hora (descontando agentes en almuerzo) viene del backend
+  const hourLabels = Array.from({length:24}, (_,i)=>`${String(i).padStart(2,'0')}:00`);
+  const coverageByHour = data.net_coverage || new Array(24).fill(0);
+
+  const dayTypeLabel = {'weekday':'Lunes–Viernes', 'saturday':'Sábado', 'sunday':'Domingo'}[data.day_type] || data.day_type || '';
   target.innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Pico agentes</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.peak_agents}</p></div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Líneas de turno</p><p class="text-2xl font-bold text-indigo-600 mt-1">${data.summary.total_shift_lines}</p></div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Pool sugerido</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.suggested_fte_pool}</p></div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase">Horas/semana</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.weekly_hours_per_agent}</p></div>
+    <!-- Encabezado con tipo de día -->
+    ${dayTypeLabel ? `<p class="text-xs font-medium text-indigo-600 mb-3 uppercase tracking-wide">Tipo de día: ${dayTypeLabel}</p>` : ''}
+    <!-- KPI cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Pico agentes</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.peak_agents}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Líneas de turno</p><p class="text-2xl font-bold text-indigo-600 mt-1">${data.summary.total_shift_lines}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Pool sugerido</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.suggested_fte_pool}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Horas/semana</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.weekly_hours_per_agent}</p></div>
     </div>
+
+    <!-- Demand vs Coverage chart -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+      <h4 class="text-sm font-semibold text-slate-700 mb-3">Demanda vs Cobertura por hora</h4>
+      <canvas id="shift-coverage-chart" height="100"></canvas>
+    </div>
+
+    <!-- Gantt: una fila por agente, cuadrícula horaria, almuerzo resaltado -->
+    ${(()=>{
+      const shifts  = data.recommended_shifts || [];
+      const gMin    = Math.floor(Math.min(0,  ...shifts.map(s => s.start_h ?? 0)));
+      const gMax    = Math.ceil( Math.max(24, ...shifts.map(s => s.end_h   ?? 24)));
+      const gSpan   = gMax - gMin;
+      const toP     = h  => ((h - gMin) / gSpan * 100).toFixed(4);
+      const widP    = (a,b) => (Math.max(0, b - a) / gSpan * 100).toFixed(4);
+      const GREY    = 'rgba(203,213,225,0.45)';
+      const AMBER   = '#f59e0b';
+      const LBL_W   = 72;
+
+      // Hora logica del almuerzo dentro del span del turno
+      const toLogical = (wallH, sh, eh) => {
+        for (const off of [0, -24, 24]) { const h = wallH + off; if (h >= sh && h < eh) return h; }
+        return wallH;
+      };
+
+      // Segmento de barra
+      const seg = (a, b, col, z) => {
+        if (b <= a + 0.001) return '';
+        return `<div style="position:absolute;left:${toP(a)}%;width:${widP(a,b)}%;top:0;bottom:0;background:${col};z-index:${z};"></div>`;
+      };
+
+      // Cuadricula horaria (string compartido por todas las filas)
+      let gridLines = '';
+      for (let h = Math.ceil(gMin); h <= Math.floor(gMax); h++) {
+        const isBound = h === 0 || h === 24;
+        gridLines += `<div style="position:absolute;left:${toP(h)}%;top:0;bottom:0;width:${isBound?'2px':'1px'};background:${isBound?'rgba(99,102,241,0.3)':'rgba(226,232,240,1)'};z-index:1;pointer-events:none;"></div>`;
+      }
+      const todayBg = `<div style="position:absolute;left:${toP(0)}%;width:${widP(0,24)}%;top:0;bottom:0;background:rgba(99,102,241,0.04);z-index:0;pointer-events:none;"></div>`;
+
+      // Eje de horas
+      const tickStep = gSpan <= 16 ? 1 : gSpan <= 24 ? 2 : 3;
+      let axis = '';
+      for (let h = gMin; h <= gMax; h += tickStep) {
+        const disp = String(((h%24)+24)%24).padStart(2,'0');
+        const sup  = h < 0 ? '<sup style="font-size:7px">-1</sup>' : h >= 24 ? '<sup style="font-size:7px">+1</sup>' : '';
+        const col  = (h >= 0 && h <= 24) ? '#475569' : '#94a3b8';
+        axis += `<div style="position:absolute;left:${toP(h)}%;transform:translateX(-50%);font-size:10px;color:${col};text-align:center;">${disp}${sup}</div>`;
+      }
+
+      // Filas: una por agente, agrupadas por turno
+      let body = '';
+      shifts.forEach((s, si) => {
+        const sh    = s.start_h ?? parseInt(s.start);
+        const eh    = s.end_h   ?? (sh + s.paid_hours + s.lunch_minutes / 60);
+        const lMin  = s.lunch_minutes || 0;
+        const lDur  = lMin / 60;
+        const color = SHIFT_COLORS[si % SHIFT_COLORS.length];
+        const n     = s.agents || 1;
+        const pos   = (s.lunch_positions || []).filter(p => p);
+
+        if (si > 0) body += `<div style="height:6px;"></div>`;
+
+        body += `<div style="display:flex;border:1px solid rgba(226,232,240,0.9);border-radius:5px;overflow:hidden;">`;
+
+        // Columna de etiquetas
+        body += `<div style="width:${LBL_W}px;flex-shrink:0;border-right:1px solid rgba(226,232,240,0.9);background:#f8fafc;">`;
+        for (let ai = 0; ai < n; ai++) {
+          const bt  = ai > 0 ? 'border-top:1px solid rgba(226,232,240,0.9);' : '';
+          const lbl = ai === 0
+            ? `<span style="font-weight:600;color:#374151;font-size:11px;">${s.name}</span>`
+            : `<span style="color:#94a3b8;font-size:10px;">ag.${ai+1}</span>`;
+          body += `<div style="height:22px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;${bt}">${lbl}</div>`;
+        }
+        body += `</div>`;
+
+        // Columna de barras
+        body += `<div style="flex:1;">`;
+        for (let ai = 0; ai < n; ai++) {
+          const bt = ai > 0 ? 'border-top:1px solid rgba(226,232,240,0.9);' : '';
+
+          let lhLog = null, lendLog = null;
+          if (lMin > 0 && pos[ai]) {
+            lhLog   = toLogical(parseInt(pos[ai]), sh, eh);
+            lendLog = lhLog + lDur;
+          }
+
+          const todayS = Math.max(sh, 0), todayE = Math.min(eh, 24);
+          const work1E = lhLog != null ? Math.min(lhLog,   todayE) : todayE;
+          const work2S = lhLog != null ? Math.max(lendLog, todayS) : todayE;
+
+          const bars =
+            seg(sh, eh, GREY, 2) +
+            seg(todayS, work1E, color + 'e0', 3) +
+            seg(work2S, todayE, color + 'e0', 3) +
+            (lhLog != null ? seg(lhLog, lendLog, AMBER, 4) : '');
+
+          body += `<div style="height:22px;position:relative;overflow:hidden;background:#f8fafc;${bt}">
+            ${todayBg}${gridLines}${bars}
+          </div>`;
+        }
+        body += `</div></div>`;
+      });
+
+      // Leyenda
+      const GREY_SWATCH = `<span style="width:12px;height:8px;background:${GREY};border-radius:2px;display:inline-block;border:1px solid #cbd5e1;"></span>`;
+      const legend = [
+        gMin < 0 ? `<span style="display:flex;align-items:center;gap:3px;">${GREY_SWATCH}Ayer</span>` : '',
+        `<span style="display:flex;align-items:center;gap:3px;"><span style="width:12px;height:8px;background:#6366f1;border-radius:2px;display:inline-block;"></span>Hoy</span>`,
+        gMax > 24 ? `<span style="display:flex;align-items:center;gap:3px;">${GREY_SWATCH}Dia siguiente</span>` : '',
+        `<span style="display:flex;align-items:center;gap:3px;"><span style="width:12px;height:8px;background:${AMBER};border-radius:2px;display:inline-block;"></span>Almuerzo</span>`,
+      ].filter(Boolean).join('');
+
+      return `<div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <h4 class="text-sm font-semibold text-slate-700">Linea de tiempo de turnos</h4>
+          <div style="display:flex;gap:10px;font-size:11px;color:#6b7280;align-items:center;">${legend}</div>
+        </div>
+        <div style="display:flex;margin-bottom:4px;">
+          <div style="width:${LBL_W}px;flex-shrink:0;"></div>
+          <div style="flex:1;position:relative;height:18px;">${axis}</div>
+        </div>
+        <div>${body}</div>
+      </div>`;
+    })()}
+
+    <!-- Detail table -->
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="text-left px-4 py-3">Turno</th><th class="text-center px-4 py-3">Inicio</th><th class="text-center px-4 py-3">Fin</th><th class="text-center px-4 py-3">Agentes</th><th class="text-center px-4 py-3">Descanso</th></tr></thead>
-      <tbody class="divide-y divide-slate-100">${(data.recommended_shifts||[]).map(s=>`<tr><td class="px-4 py-2 font-medium">${s.name}</td><td class="px-4 py-2 text-center">${s.start}</td><td class="px-4 py-2 text-center">${s.end}</td><td class="px-4 py-2 text-center font-bold text-indigo-600">${s.agents}</td><td class="px-4 py-2 text-center">${s.break_minutes} min</td></tr>`).join('')}</tbody></table>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 uppercase">
+          <tr>
+            <th class="text-left px-4 py-3">Turno</th>
+            <th class="text-center px-4 py-3">Inicio</th>
+            <th class="text-center px-4 py-3">Fin</th>
+            <th class="text-center px-4 py-3">Agentes</th>
+            <th class="text-center px-4 py-3">Descanso</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${(data.recommended_shifts||[]).map((s,i)=>{
+            const color = SHIFT_COLORS[i % SHIFT_COLORS.length];
+            const positions = (s.lunch_positions||[]).filter(p=>p);
+            let lunchCell = '—';
+            if (positions.length === 1) {
+              lunchCell = `${positions[0]} (${s.lunch_minutes} min)`;
+            } else if (positions.length > 1) {
+              const first = positions[0], last = positions[positions.length-1];
+              lunchCell = first === last
+                ? `${first} (${s.lunch_minutes} min)`
+                : `${first}–${last} <span class="text-slate-400 text-xs">escalonado</span>`;
+            }
+            return `<tr>
+              <td class="px-4 py-2 font-medium">
+                <span class="inline-flex items-center gap-2">
+                  <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>${s.name}
+                </span>
+              </td>
+              <td class="px-4 py-2 text-center">${s.crosses_midnight ? '<span title="Inicia día anterior">↩ </span>' : ''}${s.start}</td>
+              <td class="px-4 py-2 text-center">${s.end}${s.crosses_midnight ? ' <span class="text-xs text-slate-400">+1d</span>' : ''}</td>
+              <td class="px-4 py-2 text-center font-bold text-indigo-600">${s.agents}</td>
+              <td class="px-4 py-2 text-center text-sm">${lunchCell}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
     </div>`;
+
+  // render demand vs coverage chart
+  if (window._shiftCoverageChart) window._shiftCoverageChart.destroy();
+  window._shiftCoverageChart = new Chart(
+    document.getElementById('shift-coverage-chart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: hourLabels,
+      datasets: [
+        {
+          label: 'Demanda (agentes requeridos)',
+          data: data.hourly_required,
+          backgroundColor: 'rgba(99,102,241,0.25)',
+          borderColor: 'rgba(99,102,241,0.8)',
+          borderWidth: 1,
+          order: 2,
+        },
+        {
+          label: 'Cobertura neta (sin almuerzo)',
+          data: coverageByHour,
+          type: 'line',
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.1)',
+          borderWidth: 2,
+          pointRadius: 3,
+          fill: true,
+          tension: 0.3,
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, title: { display: true, text: 'Agentes', font: { size: 11 } } },
+      },
+    },
+  });
 }
 
 // ── Forecast ──────────────────────────────────────────────────────────────────
@@ -990,5 +1225,109 @@ initVolChart();
 loadVolumes();
 updateVolChart();
 buildHeatmap();
+
+// ── Importar desde BD ─────────────────────────────────────────────────────────
+let _importTargetType = null;
+
+async function openImportModal(targetType) {
+  _importTargetType = targetType;
+  const r = await fetch(`/api/templates?target_type=${targetType}`);
+  const templates = await r.json();
+
+  const sel = document.getElementById('import-tmpl-sel');
+  if (!templates.length) {
+    sel.innerHTML = '<option value="">— Sin plantillas guardadas —</option>';
+  } else {
+    sel.innerHTML = templates.map(t =>
+      `<option value="${t.id}">[${t.connector_name}] ${t.name}</option>`
+    ).join('');
+  }
+
+  const dtWrap = document.getElementById('import-dt-wrap');
+  dtWrap.style.display = targetType === 'interval_volumes' ? '' : 'none';
+
+  document.getElementById('import-modal-title').textContent =
+    targetType === 'interval_volumes' ? 'Importar volúmenes por intervalo' : 'Importar datos históricos';
+  document.getElementById('import-modal-status').textContent = '';
+  document.getElementById('import-bd-modal').classList.remove('hidden');
+}
+
+async function runBDImport() {
+  const tmplId = document.getElementById('import-tmpl-sel').value;
+  if (!tmplId) return;
+  const dayType = document.getElementById('import-dt-sel').value;
+  const statusEl = document.getElementById('import-modal-status');
+  statusEl.className = 'text-sm text-slate-400';
+  statusEl.textContent = 'Importando…';
+
+  const r = await fetch(`/api/templates/${tmplId}/run`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ campaign_id: CAMPAIGN_ID, day_type: dayType }),
+  });
+  const d = await r.json();
+
+  if (!r.ok || d.error) {
+    statusEl.className = 'text-sm text-red-500';
+    statusEl.textContent = '✗ ' + (d.error || 'Error');
+    return;
+  }
+
+  statusEl.className = 'text-sm text-green-600 font-medium';
+  statusEl.textContent = `✓ ${d.imported} registros importados`;
+
+  // Refresh the relevant section after a short delay
+  setTimeout(() => {
+    document.getElementById('import-bd-modal').classList.add('hidden');
+    if (d.target_type === 'interval_volumes') {
+      loadVolumes();
+    } else {
+      location.reload();   // historical table is server-rendered; reload page
+    }
+  }, 1200);
+}
 </script>
+
+<!-- Importar desde BD modal -->
+<div id="import-bd-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+      <h3 class="font-semibold text-slate-800" id="import-modal-title">Importar desde BD</h3>
+      <button onclick="document.getElementById('import-bd-modal').classList.add('hidden')"
+              class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Plantilla</label>
+        <select id="import-tmpl-sel"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+        </select>
+        <p class="text-xs text-slate-400 mt-1">
+          Gestiona plantillas en
+          <a href="/connectors" class="text-brand hover:underline">Conectores BD</a>
+        </p>
+      </div>
+      <div id="import-dt-wrap">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de día</label>
+        <select id="import-dt-sel"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          <option value="weekday">Lunes–Viernes</option>
+          <option value="saturday">Sábado</option>
+          <option value="sunday">Domingo</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-3 pt-1">
+        <button onclick="runBDImport()"
+                class="flex-1 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark">
+          Importar
+        </button>
+        <button onclick="document.getElementById('import-bd-modal').classList.add('hidden')"
+                class="flex-1 py-2 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">
+          Cancelar
+        </button>
+      </div>
+      <p id="import-modal-status" class="text-sm text-center h-5"></p>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

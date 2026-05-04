@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+{% block title %}Jornadas Laborales — WFM{% endblock %}
+
+{% block content %}
+<div class="space-y-5 max-w-screen-xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800">Jornadas laborales</h1>
+      <p class="text-sm text-slate-500 mt-0.5">El gestor coloca cada jornada en el horario óptimo y programa el almuerzo en el valle de demanda</p>
+    </div>
+    <button onclick="openForm()"
+            class="flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      Nueva jornada
+    </button>
+  </div>
+
+  <!-- Marco legal + Shrinkage info -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <button onclick="toggleLegal()" class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50">
+        <span class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>
+          </svg>
+          Marco legal — Perú (Ley N° 27671)
+        </span>
+        <svg id="legal-chevron" class="w-4 h-4 text-slate-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      <div id="legal-body">
+        <table class="w-full text-sm px-4 pb-4">
+          <tbody class="divide-y divide-slate-50">
+            <tr><td class="px-4 py-2 text-slate-500">Jornada máxima</td><td class="px-4 py-2 font-semibold text-right">8 h/día · 48 h/semana</td></tr>
+            <tr><td class="px-4 py-2 text-slate-500">Refrigerio (almuerzo)</td><td class="px-4 py-2 text-right font-semibold">Mín. 45 min · <span class="text-amber-600">no computable</span></td></tr>
+            <tr><td class="px-4 py-2 text-slate-500">Descanso entre jornadas</td><td class="px-4 py-2 text-right font-semibold">Mín. 12 horas</td></tr>
+            <tr><td class="px-4 py-2 text-slate-500">Días consecutivos</td><td class="px-4 py-2 text-right font-semibold">Máx. 6 días</td></tr>
+            <tr><td class="px-4 py-2 text-slate-500">Turno nocturno (22:00–06:00)</td><td class="px-4 py-2 text-right font-semibold">+35 % sobre RMV</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+      <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <div class="text-sm">
+        <p class="font-semibold text-amber-800 mb-1">Shrinkage: el refrigerio NO se incluye</p>
+        <p class="text-amber-700">El almuerzo se modela en la definición de jornada como tiempo fuera de jornada efectiva. El shrinkage contempla solo: ausentismo, vacaciones, capacitaciones, coaching, reuniones y pausas biológicas.</p>
+        <p class="text-amber-600 mt-1.5 text-xs font-medium">Referencia sin almuerzo: ~20–22 %   ·   Antes (con almuerzo): ~28–30 %</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cómo funciona el gestor -->
+  <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 flex gap-3 items-start text-sm">
+    <svg class="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <div class="text-indigo-700">
+      <strong>Cómo funciona el gestor:</strong> defines solo la <em>duración</em> de cada jornada (horas pagadas + refrigerio). Cuando calculas turnos en una campaña, el gestor coloca automáticamente cada jornada en la hora del día donde más falta cobertura, y programa el almuerzo en el intervalo de menor demanda dentro del turno.
+    </div>
+  </div>
+
+  <!-- Plantillas definidas -->
+  <div>
+    <h2 class="text-sm font-semibold text-slate-700 mb-3">Plantillas de jornada</h2>
+    <div id="shift-cards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <p class="text-sm text-slate-400 col-span-full py-4 text-center" id="cards-empty">Sin jornadas definidas. Crea la primera.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── PANEL LATERAL ─────────────────────────────────────────────────────────── -->
+<div id="form-overlay" class="hidden fixed inset-0 bg-black/40 z-40" onclick="closeForm()"></div>
+<aside id="form-panel"
+       class="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 overflow-y-auto">
+  <div class="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-slate-100">
+    <h2 class="font-semibold text-slate-800" id="form-title">Nueva jornada</h2>
+    <button onclick="closeForm()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+  </div>
+  <div class="px-5 py-5 space-y-4">
+
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Nombre</label>
+      <input id="f-name" type="text" placeholder="Ej: Jornada Completa"
+             oninput="updatePreview()"
+             class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+    </div>
+
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Horas efectivas pagadas</label>
+      <select id="f-paid" onchange="updatePreview()"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+        <option value="4">4 horas (media jornada)</option>
+        <option value="5">5 horas</option>
+        <option value="6">6 horas</option>
+        <option value="7">7 horas</option>
+        <option value="8" selected>8 horas (máximo legal)</option>
+      </select>
+      <p class="text-xs text-slate-400 mt-0.5">No incluir el almuerzo — se define abajo</p>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 space-y-2">
+      <p class="text-xs font-semibold text-amber-700">Refrigerio — fuera de jornada efectiva</p>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Duración del almuerzo</label>
+        <select id="f-lunch" onchange="updatePreview()"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand">
+          <option value="0">Sin almuerzo (jornada ≤ 5h)</option>
+          <option value="30">30 minutos</option>
+          <option value="45" selected>45 minutos (mínimo legal)</option>
+          <option value="60">60 minutos</option>
+          <option value="90">90 minutos</option>
+        </select>
+      </div>
+      <p class="text-xs text-amber-600">El gestor programará el almuerzo en el intervalo de menor demanda dentro del turno (no en la primera ni última hora).</p>
+    </div>
+
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-2">Días activos</label>
+      <div class="flex gap-1.5" id="days-picker">
+        {% for d, lbl in [('1','L'),('2','M'),('3','X'),('4','J'),('5','V'),('6','S'),('7','D')] %}
+        <label class="flex-1">
+          <input type="checkbox" value="{{ d }}" class="day-cb sr-only" {% if d in ['1','2','3','4','5'] %}checked{% endif %}>
+          <span class="day-btn block text-center py-1.5 rounded-lg text-xs font-semibold cursor-pointer border select-none transition-colors">{{ lbl }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <span class="text-xs font-medium text-slate-600">Color</span>
+      <div class="flex gap-2" id="color-picker">
+        {% for c in ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'] %}
+        <button type="button" onclick="selectColor('{{ c }}')" data-color="{{ c }}"
+                class="color-swatch w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
+                style="background:{{ c }}"></button>
+        {% endfor %}
+      </div>
+      <input type="hidden" id="f-color" value="#6366f1">
+    </div>
+
+    <!-- Preview -->
+    <div class="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vista previa</p>
+      <!-- Shape bar (no positioned on timeline, just proportional) -->
+      <div class="relative h-7 rounded overflow-hidden bg-slate-200" id="prev-bar"></div>
+      <div class="text-xs text-slate-500 space-y-0.5" id="prev-stats"></div>
+      <div id="prev-warns" class="space-y-0.5"></div>
+    </div>
+
+    <div class="flex gap-3 pt-1">
+      <button onclick="saveShift()"
+              class="flex-1 py-2.5 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark">
+        Guardar jornada
+      </button>
+      <button onclick="closeForm()" class="px-4 py-2.5 text-sm text-slate-500 border border-slate-200 rounded-lg">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .day-cb:checked + .day-btn { background:#6366f1; color:white; border-color:#6366f1; }
+  .day-btn { color:#64748b; border-color:#e2e8f0; background:white; }
+  .color-swatch.selected { border-color:#1e293b !important; transform:scale(1.2); }
+</style>
+
+<script>
+let _editId = null;
+const _shiftCache = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadShifts();
+  initDayPicker();
+  selectColor('#6366f1');
+  updatePreview();
+});
+
+// ── Days picker ───────────────────────────────────────────────────────────────
+function initDayPicker() {
+  document.querySelectorAll('.day-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const btn = cb.nextElementSibling;
+      btn.className = cb.checked
+        ? 'day-btn block text-center py-1.5 rounded-lg text-xs font-semibold cursor-pointer border select-none transition-colors bg-brand text-white border-brand'
+        : 'day-btn block text-center py-1.5 rounded-lg text-xs font-semibold cursor-pointer border select-none transition-colors text-slate-600 bg-white border-slate-200';
+    });
+    cb.dispatchEvent(new Event('change'));
+  });
+}
+
+function selectColor(hex) {
+  document.getElementById('f-color').value = hex;
+  document.querySelectorAll('.color-swatch').forEach(b => b.classList.toggle('selected', b.dataset.color === hex));
+  updatePreview();
+}
+
+// ── Load / Render ─────────────────────────────────────────────────────────────
+async function loadShifts() {
+  const r = await fetch('/api/shifts');
+  const list = await r.json();
+  list.forEach(s => { _shiftCache[s.id] = s; });
+  renderCards(list);
+}
+
+function renderCards(list) {
+  const el = document.getElementById('shift-cards');
+  if (!list.length) {
+    el.innerHTML = '<p class="text-sm text-slate-400 col-span-full py-4 text-center">Sin jornadas definidas. Crea la primera.</p>';
+    return;
+  }
+  const DAYS = {1:'Lun',2:'Mar',3:'Mié',4:'Jue',5:'Vie',6:'Sáb',7:'Dom'};
+  el.innerHTML = list.map(s => {
+    const daysStr = s.days_of_week.split(',').map(d => DAYS[+d] || d).join(' · ');
+    const paid = s.paid_hours, lunch = s.lunch_minutes;
+    const span = paid + lunch / 60;
+    // Shape bar: proportional work-lunch-work
+    const w1 = (paid / 2 / span * 100).toFixed(1);
+    const wL = (lunch / 60 / span * 100).toFixed(1);
+    const w2 = (paid / 2 / span * 100).toFixed(1);
+    const shapeBar = lunch > 0
+      ? `<div style="display:flex;height:100%">
+           <div style="flex:${paid/2};background:${s.color};opacity:0.85;border-radius:4px 0 0 4px"></div>
+           <div style="flex:${lunch/60};background:#fcd34d;min-width:8px"></div>
+           <div style="flex:${paid/2};background:${s.color};opacity:0.85;border-radius:0 4px 4px 0"></div>
+         </div>`
+      : `<div style="width:100%;height:100%;background:${s.color};opacity:0.85;border-radius:4px"></div>`;
+    const warns = s.warnings.map(w =>
+      `<p class="text-xs text-red-500">⚠ ${w}</p>`).join('');
+    return `<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="h-1.5" style="background:${s.color}"></div>
+      <div class="p-4">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <h3 class="font-semibold text-slate-800">${s.name}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Hora de inicio: determinada por el gestor</p>
+          </div>
+          <div class="flex gap-1.5 shrink-0">
+            <button onclick="editShift(${s.id})" class="text-xs px-2.5 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600">Editar</button>
+            <button onclick="deleteShift(${s.id},'${s.name.replace(/'/g,"&#39;")}')" class="text-xs px-2.5 py-1 border border-red-200 rounded-lg hover:bg-red-50 text-red-500">Eliminar</button>
+          </div>
+        </div>
+        <!-- Shape bar -->
+        <div class="relative h-6 bg-slate-100 rounded overflow-hidden mb-3" title="Proporción trabajo / almuerzo / trabajo">${shapeBar}</div>
+        <!-- Badges -->
+        <div class="flex flex-wrap gap-1.5 text-xs mb-2">
+          <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium">${paid}h efectivas</span>
+          ${lunch > 0 ? `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-medium">${lunch} min almuerzo</span>` : ''}
+          <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">${span.toFixed(1)}h en planta</span>
+        </div>
+        <p class="text-xs text-slate-400">${daysStr}</p>
+        ${warns ? `<div class="mt-2">${warns}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Form ──────────────────────────────────────────────────────────────────────
+function openForm() {
+  _editId = null;
+  document.getElementById('form-title').textContent = 'Nueva jornada';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-paid').value = '8';
+  document.getElementById('f-lunch').value = '45';
+  selectColor('#6366f1');
+  document.querySelectorAll('.day-cb').forEach(cb => {
+    cb.checked = ['1','2','3','4','5'].includes(cb.value);
+    cb.dispatchEvent(new Event('change'));
+  });
+  showPanel();
+  updatePreview();
+}
+
+function editShift(id) {
+  const s = _shiftCache[id]; if (!s) return;
+  _editId = id;
+  document.getElementById('form-title').textContent = `Editar: ${s.name}`;
+  document.getElementById('f-name').value = s.name;
+  document.getElementById('f-paid').value = s.paid_hours;
+  document.getElementById('f-lunch').value = s.lunch_minutes;
+  selectColor(s.color);
+  const activeDays = s.days_of_week.split(',');
+  document.querySelectorAll('.day-cb').forEach(cb => {
+    cb.checked = activeDays.includes(cb.value);
+    cb.dispatchEvent(new Event('change'));
+  });
+  showPanel();
+  updatePreview();
+}
+
+function showPanel() {
+  document.getElementById('form-overlay').classList.remove('hidden');
+  document.getElementById('form-panel').classList.remove('translate-x-full');
+}
+function closeForm() {
+  document.getElementById('form-overlay').classList.add('hidden');
+  document.getElementById('form-panel').classList.add('translate-x-full');
+  _editId = null;
+}
+
+async function saveShift() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { alert('Ingresa un nombre.'); return; }
+  const days = Array.from(document.querySelectorAll('.day-cb:checked')).map(c => c.value).join(',');
+  const body = {
+    name,
+    paid_hours:    parseFloat(document.getElementById('f-paid').value),
+    lunch_minutes: parseInt(document.getElementById('f-lunch').value),
+    days_of_week:  days || '1,2,3,4,5',
+    color:         document.getElementById('f-color').value,
+  };
+  const url = _editId ? `/api/shifts/${_editId}` : '/api/shifts';
+  const r = await fetch(url, { method: _editId ? 'PUT' : 'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) { alert('Error al guardar.'); return; }
+  const saved = await r.json();
+  _shiftCache[saved.id] = saved;
+  closeForm();
+  loadShifts();
+}
+
+async function deleteShift(id, name) {
+  if (!confirm(`¿Eliminar la jornada "${name}"?`)) return;
+  await fetch(`/api/shifts/${id}`, { method:'DELETE' });
+  delete _shiftCache[id];
+  loadShifts();
+}
+
+// ── Preview en tiempo real ────────────────────────────────────────────────────
+function updatePreview() {
+  const paid  = parseFloat(document.getElementById('f-paid').value) || 8;
+  const lunch = parseInt(document.getElementById('f-lunch').value) || 0;
+  const color = document.getElementById('f-color').value || '#6366f1';
+  const span  = paid + lunch / 60;
+
+  // Shape bar
+  const bar = document.getElementById('prev-bar');
+  if (lunch > 0) {
+    bar.innerHTML = `<div style="display:flex;height:100%">
+      <div style="flex:${paid/2};background:${color};opacity:0.85;border-radius:4px 0 0 4px"></div>
+      <div style="flex:${lunch/60};background:#fcd34d;min-width:8px" title="Almuerzo ${lunch} min"></div>
+      <div style="flex:${paid/2};background:${color};opacity:0.85;border-radius:0 4px 4px 0"></div>
+    </div>`;
+  } else {
+    bar.innerHTML = `<div style="width:100%;height:100%;background:${color};opacity:0.85;border-radius:4px"></div>`;
+  }
+
+  document.getElementById('prev-stats').innerHTML = `
+    <span>Horas efectivas pagadas: <strong>${paid}h</strong></span><br>
+    <span>Almuerzo: <strong>${lunch > 0 ? lunch + ' min (no computable)' : 'sin almuerzo'}</strong></span><br>
+    <span>Total tiempo en planta: <strong>${span.toFixed(1)}h</strong></span><br>
+    <span class="text-indigo-600">La hora de inicio la define el gestor según la demanda</span>`;
+
+  const warns = [];
+  if (paid > 8)      warns.push('⚠ Supera jornada máxima legal (8h/día)');
+  if (lunch > 0 && lunch < 45) warns.push('⚠ Refrigerio inferior al mínimo legal (45 min)');
+  document.getElementById('prev-warns').innerHTML =
+    warns.map(w => `<p class="text-xs text-red-500">${w}</p>`).join('');
+}
+
+// ── Legal accordion ───────────────────────────────────────────────────────────
+function toggleLegal() {
+  const body = document.getElementById('legal-body');
+  const ch   = document.getElementById('legal-chevron');
+  const open = !body.classList.contains('hidden');
+  body.classList.toggle('hidden', open);
+  ch.style.transform = open ? '' : 'rotate(180deg)';
+}
+</script>
+{% endblock %}

@@ -13,7 +13,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 sys.path.insert(0, os.path.dirname(__file__))
 os.environ["PATH"] = os.path.expanduser("~/.local/bin") + ":" + os.environ.get("PATH", "")
 
-from models import init_db, SessionLocal, Campaign, IntervalVolume, HistoricalVolume, StaffingPlan
+from models import init_db, SessionLocal, Campaign, IntervalVolume, HistoricalVolume, StaffingPlan, DBConnector, ImportTemplate, ShiftDefinition
 from calculations.inbound import build_interval_plan, summary_stats, sensitivity_analysis
 from calculations.outbound import agents_needed, build_outbound_interval_plan, compare_dial_modes
 from calculations.chat import agents_for_chat, build_chat_interval_plan, concurrency_sensitivity
@@ -257,16 +257,27 @@ def calculate(campaign_id):
 
     labels = interval_labels(campaign.interval_minutes)
     volumes = [0.0] * len(labels)
+    aht_per_interval: list = [None] * len(labels)
     for iv in intervals:
         if iv.interval_index < len(volumes):
             volumes[iv.interval_index] = iv.volume
+            if iv.aht_seconds is not None:
+                aht_per_interval[iv.interval_index] = iv.aht_seconds
+
+    # Use per-interval AHT when at least one interval has it; fill gaps with campaign default
+    has_per_interval_aht = any(v is not None for v in aht_per_interval)
+    aht_input = (
+        [v if v is not None else campaign.aht_seconds for v in aht_per_interval]
+        if has_per_interval_aht
+        else campaign.aht_seconds
+    )
 
     result = {}
 
     if campaign.campaign_type == "inbound":
         plan = build_interval_plan(
             interval_volumes=volumes,
-            aht_seconds=campaign.aht_seconds,
+            aht_seconds=aht_input,
             interval_minutes=campaign.interval_minutes,
             target_sl=campaign.target_sl,
             target_seconds=campaign.target_seconds,
@@ -274,7 +285,7 @@ def calculate(campaign_id):
             max_occupancy=campaign.max_occupancy,
         )
         summ = summary_stats(plan)
-        result = {"plan": plan, "summary": summ, "type": "inbound"}
+        result = {"plan": plan, "summary": summ, "type": "inbound", "day_type": day_type}
 
         # Save plan
         sp = StaffingPlan(
@@ -316,6 +327,7 @@ def calculate(campaign_id):
             "result": outbound_result,
             "hourly_plan": hourly_plan,
             "comparison": comparison,
+            "day_type": day_type,
         }
 
     elif campaign.campaign_type == "chat":
@@ -353,6 +365,7 @@ def calculate(campaign_id):
             "summary": chat_result,
             "plan": plan,
             "sensitivity": sensitivity,
+            "day_type": day_type,
         }
 
     db.close()
@@ -370,10 +383,36 @@ def shift_plan_peru(campaign_id):
     data = request.json or {}
     plan = data.get("plan", [])
     interval_minutes = int(data.get("interval_minutes", campaign.interval_minutes or 30))
+    day_type = data.get("day_type", "weekday")
     if not plan:
         return jsonify({"error": "plan vacío"}), 400
 
-    result = dimension_shifts_peru(plan, interval_minutes)
+    # Días ISO activos según el tipo de día
+    _DAY_TYPE_ISODAYS = {
+        "weekday":  {1, 2, 3, 4, 5},
+        "saturday": {6},
+        "sunday":   {7},
+    }
+    active_iso = _DAY_TYPE_ISODAYS.get(day_type, {1, 2, 3, 4, 5, 6, 7})
+
+    # Cargar solo las jornadas activas para ese tipo de día
+    db2 = SessionLocal()
+    defs = db2.query(ShiftDefinition).order_by(ShiftDefinition.created_at).all()
+
+    def _applies(d):
+        if not d.days_of_week:
+            return True
+        return bool({int(x) for x in d.days_of_week.split(",") if x.strip()} & active_iso)
+
+    shift_defs = [
+        {"id": d.id, "name": d.name, "paid_hours": d.paid_hours,
+         "lunch_minutes": d.lunch_minutes, "color": d.color}
+        for d in defs if _applies(d)
+    ] or None
+    db2.close()
+
+    result = dimension_shifts_peru(plan, interval_minutes, shift_defs=shift_defs)
+    result["day_type"] = day_type
     return jsonify(result)
 
 
@@ -531,11 +570,519 @@ def api_erlang():
     return jsonify({"error": "unknown mode"}), 400
 
 
+# ─── Jornadas ─────────────────────────────────────────────────────────────────
+
+@app.route("/jornadas")
+def jornadas_page():
+    return render_template("jornadas.html")
+
+
+@app.route("/api/shifts", methods=["GET"])
+def list_shifts():
+    db = SessionLocal()
+    rows = db.query(ShiftDefinition).order_by(ShiftDefinition.created_at).all()
+    result = [_shift_to_dict(s) for s in rows]
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/shifts", methods=["POST"])
+def create_shift():
+    data = request.json or {}
+    db = SessionLocal()
+    s = ShiftDefinition(
+        name=data["name"],
+        paid_hours=float(data.get("paid_hours", 8)),
+        lunch_minutes=int(data.get("lunch_minutes", 45)),
+        days_of_week=data.get("days_of_week", "1,2,3,4,5"),
+        color=data.get("color", "#6366f1"),
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    result = _shift_to_dict(s)
+    db.close()
+    return jsonify(result), 201
+
+
+@app.route("/api/shifts/<int:shift_id>", methods=["PUT"])
+def update_shift(shift_id):
+    db = SessionLocal()
+    s = db.get(ShiftDefinition, shift_id)
+    if not s:
+        db.close()
+        return jsonify({"error": "not found"}), 404
+    data = request.json or {}
+    s.name          = data.get("name", s.name)
+    s.paid_hours    = float(data.get("paid_hours", s.paid_hours))
+    s.lunch_minutes = int(data.get("lunch_minutes", s.lunch_minutes))
+    s.days_of_week  = data.get("days_of_week", s.days_of_week)
+    s.color         = data.get("color", s.color)
+    db.commit()
+    result = _shift_to_dict(s)
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/shifts/<int:shift_id>", methods=["DELETE"])
+def delete_shift(shift_id):
+    db = SessionLocal()
+    s = db.get(ShiftDefinition, shift_id)
+    if not s:
+        db.close()
+        return jsonify({"error": "not found"}), 404
+    db.delete(s)
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
+def _shift_to_dict(s: ShiftDefinition) -> dict:
+    from calculations.peru_shifts import _validate_shift, ShiftRule
+    warnings = _validate_shift({"paid_hours": s.paid_hours, "lunch_minutes": s.lunch_minutes}, ShiftRule())
+    span_h = s.paid_hours + s.lunch_minutes / 60
+    return {
+        "id": s.id, "name": s.name,
+        "paid_hours": s.paid_hours,
+        "lunch_minutes": s.lunch_minutes,
+        "span_hours": round(span_h, 2),
+        "days_of_week": s.days_of_week,
+        "color": s.color,
+        "warnings": warnings,
+    }
+
+
 # ─── Shrinkage Reference ──────────────────────────────────────────────────────
 
 @app.route("/api/shrinkage-reference")
 def shrinkage_reference():
     return jsonify(shrinkage_components())
+
+
+# ─── Connectors ───────────────────────────────────────────────────────────────
+
+def _normalize_interval(val) -> str:
+    """Coerce any time-like value to HH:MM format.
+
+    Handles:
+      "08:00", "08:00:00"         → "08:00"
+      "2024-01-15 08:30:00"       → "08:30"
+      "2024-01-15T08:30:00"       → "08:30"
+      8, "8"  (plain hour 0–23)   → "08:00"   ← HOUR() from MySQL/SQL
+      480     (minutes ≥ 60)      → "08:00"
+    """
+    s = str(val).strip()
+    # Strip date prefix from datetime strings
+    if "T" in s:
+        s = s.split("T")[1]
+    if " " in s and len(s) > 8:
+        s = s.split(" ")[-1]
+    # HH:MM or HH:MM:SS
+    parts = s.split(":")
+    if len(parts) >= 2:
+        try:
+            return f"{int(parts[0]):02d}:{parts[1][:2]}"
+        except ValueError:
+            pass
+    # Plain number
+    try:
+        n = int(float(s))
+        if 0 <= n <= 23:          # treat as hour (e.g. HOUR() SQL function)
+            return f"{n:02d}:00"
+        return f"{n // 60:02d}:{n % 60:02d}"  # treat as minutes from midnight
+    except ValueError:
+        return s
+
+
+def _normalize_date(val) -> str:
+    """Coerce any date-like value to YYYY-MM-DD."""
+    s = str(val).strip()
+    # isoformat datetime: "2024-01-15T08:30:00" → "2024-01-15"
+    return s[:10]
+
+
+@app.route("/connectors")
+def connectors_page():
+    db = SessionLocal()
+    campaigns = db.query(Campaign).filter(Campaign.is_active == True).order_by(Campaign.name).all()
+    db.close()
+    return render_template("connectors.html", campaigns=campaigns)
+
+
+@app.route("/api/connectors", methods=["GET"])
+def list_connectors():
+    db = SessionLocal()
+    rows = db.query(DBConnector).order_by(DBConnector.created_at.desc()).all()
+    result = [
+        {"id": c.id, "name": c.name, "db_type": c.db_type, "host": c.host,
+         "port": c.port, "database": c.database, "username": c.username,
+         "created_at": c.created_at.isoformat()}
+        for c in rows
+    ]
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/connectors", methods=["POST"])
+def create_connector():
+    data = request.json or {}
+    db = SessionLocal()
+    c = DBConnector(
+        name=data["name"],
+        db_type=data.get("db_type", "mysql"),
+        host=data["host"],
+        port=int(data.get("port", 3306)),
+        database=data["database"],
+        username=data["username"],
+        password_plain=data.get("password", ""),
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    result = {"id": c.id, "name": c.name, "db_type": c.db_type, "host": c.host,
+              "port": c.port, "database": c.database, "username": c.username}
+    db.close()
+    return jsonify(result), 201
+
+
+@app.route("/api/connectors/<int:conn_id>", methods=["PUT"])
+def update_connector(conn_id):
+    db = SessionLocal()
+    c = db.get(DBConnector, conn_id)
+    if not c:
+        db.close()
+        return jsonify({"error": "not found"}), 404
+    data = request.json or {}
+    c.name     = data.get("name", c.name)
+    c.db_type  = data.get("db_type", c.db_type)
+    c.host     = data.get("host", c.host)
+    c.port     = int(data.get("port", c.port))
+    c.database = data.get("database", c.database)
+    c.username = data.get("username", c.username)
+    if data.get("password"):          # blank = keep existing
+        c.password_plain = data["password"]
+    db.commit()
+    result = {"id": c.id, "name": c.name, "db_type": c.db_type, "host": c.host,
+              "port": c.port, "database": c.database, "username": c.username}
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/connectors/<int:conn_id>", methods=["DELETE"])
+def delete_connector(conn_id):
+    db = SessionLocal()
+    c = db.get(DBConnector, conn_id)
+    if not c:
+        db.close()
+        return jsonify({"error": "not found"}), 404
+    db.delete(c)
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/connectors/<int:conn_id>/test", methods=["POST"])
+def test_connector(conn_id):
+    db = SessionLocal()
+    c = db.get(DBConnector, conn_id)
+    db.close()
+    if not c:
+        return jsonify({"error": "not found"}), 404
+    try:
+        from connectors import get_connector
+        connector = get_connector(c.db_type, c.host, c.port, c.database, c.username, c.password_plain or "")
+        ok, msg = connector.test_connection()
+        return jsonify({"success": ok, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "message": str(exc)})
+
+
+@app.route("/api/connectors/<int:conn_id>/preview", methods=["POST"])
+def preview_query(conn_id):
+    db = SessionLocal()
+    c = db.get(DBConnector, conn_id)
+    db.close()
+    if not c:
+        return jsonify({"error": "not found"}), 404
+    data = request.json or {}
+    sql = data.get("sql", "").strip()
+    if not sql:
+        return jsonify({"error": "query vacío"}), 400
+    try:
+        from connectors import get_connector
+        connector = get_connector(c.db_type, c.host, c.port, c.database, c.username, c.password_plain or "")
+        result = connector.execute_query(sql, max_rows=20)
+        return jsonify(result)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+def _execute_import(db, campaign, columns, rows, target_type, day_type, mapping):
+    """Normalize and persist imported rows. Returns (imported_count, errors_list)."""
+    imported = 0
+    errors = []
+
+    if target_type == "interval_volumes":
+        col_iv  = mapping.get("col_interval", "")
+        col_vol = mapping.get("col_volume", "")
+        col_dt  = mapping.get("col_day_type", "")
+        col_aht = mapping.get("col_aht", "")
+
+        if col_iv not in columns or col_vol not in columns:
+            raise ValueError(f"Columnas no encontradas: '{col_iv}', '{col_vol}'")
+
+        idx_iv  = columns.index(col_iv)
+        idx_vol = columns.index(col_vol)
+        idx_dt  = columns.index(col_dt)  if col_dt  and col_dt  in columns else None
+        idx_aht = columns.index(col_aht) if col_aht and col_aht in columns else None
+
+        labels = interval_labels(campaign.interval_minutes)
+        label_to_idx = {lbl: i for i, lbl in enumerate(labels)}
+        agg: dict = {}  # {(day_type, idx): [vol, aht_wsum, aht_wvol]}
+
+        for row in rows:
+            eff_dt = day_type
+            if idx_dt is not None:
+                raw_dt = str(row[idx_dt]).lower()
+                if any(x in raw_dt for x in ("sat", "sab", "6")):
+                    eff_dt = "saturday"
+                elif any(x in raw_dt for x in ("sun", "dom", "7", "0")):
+                    eff_dt = "sunday"
+                else:
+                    eff_dt = "weekday"
+
+            norm_iv = _normalize_interval(row[idx_iv])
+            if norm_iv not in label_to_idx:
+                errors.append(f"Intervalo no reconocido: {row[idx_iv]!r} → {norm_iv!r}")
+                continue
+            try:
+                vol = float(row[idx_vol] or 0)
+            except (TypeError, ValueError):
+                vol = 0.0
+
+            aht_val = None
+            if idx_aht is not None and row[idx_aht] is not None:
+                try:
+                    aht_val = float(row[idx_aht])
+                except (TypeError, ValueError):
+                    pass
+
+            key = (eff_dt, label_to_idx[norm_iv])
+            if key not in agg:
+                agg[key] = [0.0, 0.0, 0.0]
+            agg[key][0] += vol
+            if aht_val is not None and vol > 0:
+                agg[key][1] += vol * aht_val
+                agg[key][2] += vol
+            imported += 1
+
+        for eff_dt in {k[0] for k in agg}:
+            db.query(IntervalVolume).filter(
+                IntervalVolume.campaign_id == campaign.id,
+                IntervalVolume.day_type == eff_dt,
+            ).delete()
+
+        for (eff_dt, idx), (vol, aht_wsum, aht_wvol) in agg.items():
+            eff_aht = round(aht_wsum / aht_wvol, 1) if aht_wvol > 0 else None
+            db.add(IntervalVolume(
+                campaign_id=campaign.id,
+                interval_label=labels[idx],
+                interval_index=idx,
+                volume=vol,
+                day_type=eff_dt,
+                aht_seconds=eff_aht,
+            ))
+
+    elif target_type == "historical_volumes":
+        col_date = mapping.get("col_date", "")
+        col_vol  = mapping.get("col_volume", "")
+
+        if col_date not in columns or col_vol not in columns:
+            raise ValueError(f"Columnas no encontradas: '{col_date}', '{col_vol}'")
+
+        idx_date = columns.index(col_date)
+        idx_vol  = columns.index(col_vol)
+
+        for row in rows:
+            norm_date = _normalize_date(row[idx_date])
+            try:
+                vol = float(row[idx_vol] or 0)
+            except (TypeError, ValueError):
+                vol = 0.0
+            existing = db.query(HistoricalVolume).filter(
+                HistoricalVolume.campaign_id == campaign.id,
+                HistoricalVolume.record_date == norm_date,
+            ).first()
+            if existing:
+                existing.total_volume = vol
+            else:
+                db.add(HistoricalVolume(campaign_id=campaign.id, record_date=norm_date, total_volume=vol))
+            imported += 1
+    else:
+        raise ValueError("target_type inválido")
+
+    return imported, errors
+
+
+@app.route("/api/templates", methods=["GET"])
+def list_all_templates():
+    """All import templates across connectors, optionally filtered by target_type."""
+    target_type = request.args.get("target_type")
+    db = SessionLocal()
+    q = db.query(ImportTemplate, DBConnector).join(DBConnector, ImportTemplate.connector_id == DBConnector.id)
+    if target_type:
+        q = q.filter(ImportTemplate.target_type == target_type)
+    rows = q.order_by(DBConnector.name, ImportTemplate.name).all()
+    result = [
+        {"id": t.id, "name": t.name, "target_type": t.target_type,
+         "connector_id": t.connector_id, "connector_name": c.name, "connector_type": c.db_type}
+        for t, c in rows
+    ]
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/templates/<int:tmpl_id>/run", methods=["POST"])
+def run_template(tmpl_id):
+    """Run a saved template against a campaign, with optional day_type override."""
+    data = request.json or {}
+    campaign_id  = int(data.get("campaign_id", 0))
+    day_type_ovr = data.get("day_type")
+
+    db = SessionLocal()
+    t = db.get(ImportTemplate, tmpl_id)
+    if not t:
+        db.close()
+        return jsonify({"error": "Plantilla no encontrada"}), 404
+    c = db.get(DBConnector, t.connector_id)
+    if not c:
+        db.close()
+        return jsonify({"error": "Conector no encontrado"}), 404
+    campaign = db.get(Campaign, campaign_id)
+    if not campaign:
+        db.close()
+        return jsonify({"error": "Campaña no encontrada"}), 404
+
+    # Read all ORM attributes before any commit/close
+    cfg         = json.loads(t.config_json or "{}")
+    target_type = t.target_type
+    query_sql   = t.query_sql
+    conn_type   = c.db_type
+    conn_host   = c.host
+    conn_port   = c.port
+    conn_db     = c.database
+    conn_user   = c.username
+    conn_pass   = c.password_plain or ""
+
+    mapping  = {k: v for k, v in cfg.items() if k.startswith("col_")}
+    day_type = day_type_ovr or cfg.get("day_type", "weekday")
+
+    try:
+        from connectors import get_connector
+        connector = get_connector(conn_type, conn_host, conn_port, conn_db, conn_user, conn_pass)
+        result = connector.execute_query(query_sql, max_rows=10000)
+    except Exception as exc:
+        db.close()
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        imported, errors = _execute_import(db, campaign, result["columns"], result["rows"], target_type, day_type, mapping)
+    except ValueError as exc:
+        db.close()
+        return jsonify({"error": str(exc)}), 400
+
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok", "imported": imported, "errors": errors[:20],
+                    "target_type": target_type})
+
+
+@app.route("/api/connectors/<int:conn_id>/import", methods=["POST"])
+def run_import(conn_id):
+    db = SessionLocal()
+    c = db.get(DBConnector, conn_id)
+    if not c:
+        db.close()
+        return jsonify({"error": "not found"}), 404
+
+    data = request.json or {}
+    sql = data.get("sql", "").strip()
+    target_type = data.get("target_type", "")
+    campaign_id = int(data.get("campaign_id", 0))
+    day_type = data.get("day_type", "weekday")
+    mapping = data.get("mapping", {})
+
+    campaign = db.get(Campaign, campaign_id)
+    if not campaign:
+        db.close()
+        return jsonify({"error": "Campaña no encontrada"}), 404
+
+    try:
+        from connectors import get_connector
+        connector = get_connector(c.db_type, c.host, c.port, c.database, c.username, c.password_plain or "")
+        result = connector.execute_query(sql, max_rows=10000)
+    except Exception as exc:
+        db.close()
+        return jsonify({"error": str(exc)}), 400
+
+    columns = result["columns"]
+    rows = result["rows"]
+
+    try:
+        imported, errors = _execute_import(db, campaign, columns, rows, target_type, day_type, mapping)
+    except ValueError as exc:
+        db.close()
+        return jsonify({"error": str(exc)}), 400
+
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok", "imported": imported, "errors": errors[:20]})
+
+
+@app.route("/api/connectors/<int:conn_id>/templates", methods=["GET"])
+def list_templates(conn_id):
+    db = SessionLocal()
+    templates = db.query(ImportTemplate).filter(ImportTemplate.connector_id == conn_id).order_by(ImportTemplate.created_at.desc()).all()
+    result = [
+        {"id": t.id, "name": t.name, "target_type": t.target_type,
+         "query_sql": t.query_sql, "config": json.loads(t.config_json or "{}"),
+         "created_at": t.created_at.isoformat()}
+        for t in templates
+    ]
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/connectors/<int:conn_id>/templates", methods=["POST"])
+def save_template(conn_id):
+    data = request.json or {}
+    db = SessionLocal()
+    t = ImportTemplate(
+        connector_id=conn_id,
+        name=data["name"],
+        target_type=data["target_type"],
+        query_sql=data["query_sql"],
+        config_json=json.dumps(data.get("config", {})),
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    result = {"id": t.id, "name": t.name, "target_type": t.target_type}
+    db.close()
+    return jsonify(result), 201
+
+
+@app.route("/api/connectors/templates/<int:tmpl_id>", methods=["DELETE"])
+def delete_template(tmpl_id):
+    db = SessionLocal()
+    t = db.get(ImportTemplate, tmpl_id)
+    if not t:
+        db.close()
+        return jsonify({"error": "not found"}), 404
+    db.delete(t)
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────

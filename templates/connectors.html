@@ -1,0 +1,719 @@
+{% extends "base.html" %}
+{% block title %}Conectores BD — WFM{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-screen-xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800">Conectores de base de datos</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Importa volúmenes desde otras plataformas normalizando con SQL</p>
+    </div>
+    <button onclick="showNewConnectorForm()"
+            class="flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      Nueva conexión
+    </button>
+  </div>
+
+  <!-- Main grid: left list + right detail -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+    <!-- ── Left: connector list ──────────────────────────────────────────── -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <h2 class="text-sm font-semibold text-slate-700">Conexiones guardadas</h2>
+      </div>
+      <div id="connector-list" class="divide-y divide-slate-100 min-h-[80px]">
+        <p class="px-4 py-6 text-sm text-slate-400 text-center">Cargando…</p>
+      </div>
+    </div>
+
+    <!-- ── Right: detail panel ───────────────────────────────────────────── -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- New / edit connector form -->
+      <div id="connector-form-card" class="hidden bg-white rounded-xl border border-slate-200 p-5">
+        <h2 class="text-sm font-semibold text-slate-700 mb-4" id="conn-form-title">Nueva conexión MySQL</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nombre de la conexión</label>
+            <input id="cf-name" type="text" placeholder="Ej: Genesys Producción"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+            <select id="cf-type" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+              <option value="mysql">MySQL</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Puerto</label>
+            <input id="cf-port" type="number" value="3306"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Host / IP</label>
+            <input id="cf-host" type="text" placeholder="192.168.1.10"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Base de datos</label>
+            <input id="cf-db" type="text" placeholder="nombre_db"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Usuario</label>
+            <input id="cf-user" type="text" placeholder="root"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Contraseña</label>
+            <input id="cf-pass" type="password" placeholder="••••••••"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+          </div>
+        </div>
+        <div class="flex items-center gap-3 mt-5">
+          <button onclick="saveConnector()"
+                  class="px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark">
+            Guardar conexión
+          </button>
+          <button onclick="hideConnectorForm()"
+                  class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Connector detail (shows after selecting) -->
+      <div id="connector-detail-card" class="hidden bg-white rounded-xl border border-slate-200 p-5">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full" id="cd-type-badge">MySQL</span>
+              <h2 class="text-base font-semibold text-slate-800" id="cd-name">–</h2>
+            </div>
+            <p class="text-sm text-slate-500 mt-1" id="cd-host-info">–</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="testConnector()"
+                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+              </svg>
+              Probar
+            </button>
+            <button onclick="showEditConnectorForm()"
+                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Editar
+            </button>
+            <button onclick="deleteConnector()"
+                    class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-red-200 text-red-500 rounded-lg hover:bg-red-50">
+              Eliminar
+            </button>
+          </div>
+        </div>
+        <div id="test-result" class="hidden mt-3 px-3 py-2 rounded-lg text-sm font-medium"></div>
+      </div>
+
+      <!-- Templates list -->
+      <div id="templates-card" class="hidden bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <h2 class="text-sm font-semibold text-slate-700">Plantillas de importación</h2>
+          <button onclick="showImportEditor(null)"
+                  class="flex items-center gap-1.5 text-xs font-medium text-brand hover:underline">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            Nueva importación
+          </button>
+        </div>
+        <div id="template-list" class="divide-y divide-slate-100 min-h-[48px]">
+        </div>
+      </div>
+
+      <!-- Import editor -->
+      <div id="import-editor-card" class="hidden bg-white rounded-xl border border-slate-200 p-5 space-y-5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-slate-700" id="editor-title">Nueva importación</h2>
+          <button onclick="hideImportEditor()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+
+        <!-- Target config row -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de destino</label>
+            <select id="ie-target" onchange="onTargetChange()"
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+              <option value="interval_volumes">Volúmenes por intervalo</option>
+              <option value="historical_volumes">Volúmenes históricos (diarios)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Campaña destino</label>
+            <select id="ie-campaign"
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+              {% for c in campaigns %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="ie-daytypewrap">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de día (fallback)</label>
+            <select id="ie-daytype"
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+              <option value="weekday">Lunes–Viernes</option>
+              <option value="saturday">Sábado</option>
+              <option value="sunday">Domingo</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- SQL editor -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-medium text-slate-600">Consulta SQL de normalización</label>
+            <span class="text-xs text-slate-400">Solo SELECT / WITH</span>
+          </div>
+          <textarea id="ie-sql" rows="8" spellcheck="false"
+                    placeholder="-- Ejemplo para volúmenes de Genesys:
+SELECT
+  TIME_FORMAT(fecha_hora, '%H:%i') AS intervalo,
+  SUM(llamadas_ofrecidas)          AS volumen
+FROM reporte_intervalos
+WHERE fecha_hora >= CURDATE()
+GROUP BY intervalo
+ORDER BY intervalo"
+                    class="w-full font-mono text-xs border border-slate-200 rounded-lg px-3 py-3 focus:outline-none focus:border-brand resize-y bg-slate-50"></textarea>
+        </div>
+
+        <!-- Preview button -->
+        <div class="flex items-center gap-3">
+          <button onclick="runPreview()"
+                  class="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Previsualizar (20 filas)
+          </button>
+          <span id="preview-status" class="text-xs text-slate-400"></span>
+        </div>
+
+        <!-- Preview table -->
+        <div id="preview-area" class="hidden">
+          <div class="overflow-x-auto rounded-lg border border-slate-200">
+            <table class="w-full text-xs" id="preview-table">
+              <thead class="bg-slate-50 text-slate-500 uppercase"></thead>
+              <tbody class="divide-y divide-slate-100 font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Column mapping (appears after preview) -->
+        <div id="mapping-area" class="hidden space-y-4">
+          <div class="border-t border-slate-100 pt-4">
+            <h3 class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Mapeo de columnas</h3>
+
+            <!-- Interval volumes mapping -->
+            <div id="map-interval" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Intervalo <span class="text-red-400">*</span></label>
+                <select id="map-col-interval"
+                        class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
+                <p class="text-xs text-slate-400 mt-0.5">Se normaliza a HH:MM</p>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Volumen <span class="text-red-400">*</span></label>
+                <select id="map-col-volume-iv"
+                        class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → TMO / AHT (seg) <span class="text-slate-400">(opcional)</span></label>
+                <select id="map-col-aht"
+                        class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+                  <option value="">— No importar AHT —</option>
+                </select>
+                <p class="text-xs text-slate-400 mt-0.5">Promedio ponderado si hay múltiples filas por intervalo</p>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Tipo de día <span class="text-slate-400">(opcional)</span></label>
+                <select id="map-col-daytype"
+                        class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+                  <option value="">— Usar fallback —</option>
+                </select>
+                <p class="text-xs text-slate-400 mt-0.5">sat/sab → sábado, sun/dom → domingo</p>
+              </div>
+            </div>
+
+            <!-- Historical volumes mapping -->
+            <div id="map-historical" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Fecha <span class="text-red-400">*</span></label>
+                <select id="map-col-date"
+                        class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
+                <p class="text-xs text-slate-400 mt-0.5">Se normaliza a YYYY-MM-DD</p>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Volumen total <span class="text-red-400">*</span></label>
+                <select id="map-col-volume-hv"
+                        class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex items-center gap-3 pt-1 flex-wrap">
+            <button onclick="runImport()"
+                    class="flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Importar ahora
+            </button>
+            <button onclick="showSaveTemplateModal()"
+                    class="px-4 py-2 text-sm font-medium border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50">
+              Guardar plantilla…
+            </button>
+            <span id="import-status" class="text-sm"></span>
+          </div>
+        </div>
+
+      </div><!-- /import-editor-card -->
+    </div><!-- /right col -->
+  </div><!-- /grid -->
+</div>
+
+<!-- Save template modal -->
+<div id="save-tmpl-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+    <h3 class="font-semibold text-slate-800 mb-4">Guardar plantilla</h3>
+    <input id="tmpl-name-input" type="text" placeholder="Nombre de la plantilla"
+           class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:border-brand">
+    <div class="flex gap-3">
+      <button onclick="confirmSaveTemplate()"
+              class="flex-1 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark">Guardar</button>
+      <button onclick="document.getElementById('save-tmpl-modal').classList.add('hidden')"
+              class="flex-1 py-2 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let selectedConnector  = null;  // {id, name, db_type, host, port, database}
+let editingConnectorId = null;  // null = new connector, number = editing existing
+let previewColumns     = [];    // column names from last preview
+let editingTemplateId  = null;  // null = new, number = editing existing
+const _tmplCache       = {};    // id → full template object (avoids quoting issues in onclick)
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+const _connCache = {};   // id → connector object
+document.addEventListener('DOMContentLoaded', loadConnectors);
+
+async function loadConnectors() {
+  const r = await fetch('/api/connectors');
+  const list = await r.json();
+  list.forEach(c => { _connCache[c.id] = c; });
+  renderConnectorList(list);
+}
+
+function renderConnectorList(list) {
+  list.forEach(c => { _connCache[c.id] = c; });
+  const el = document.getElementById('connector-list');
+  if (!list.length) {
+    el.innerHTML = '<p class="px-4 py-6 text-sm text-slate-400 text-center">Sin conexiones guardadas</p>';
+    return;
+  }
+  el.innerHTML = list.map(c => `
+    <button onclick="selectConnector(${c.id})"
+            class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3
+                   ${selectedConnector?.id === c.id ? 'bg-indigo-50 border-l-2 border-brand' : ''}">
+      <span class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center shrink-0">
+        ${c.db_type === 'mysql' ? 'MY' : 'DB'}
+      </span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-slate-800 truncate">${c.name}</p>
+        <p class="text-xs text-slate-400 truncate">${c.host}:${c.port} / ${c.database}</p>
+      </div>
+    </button>`).join('');
+}
+
+// ── Connector CRUD ────────────────────────────────────────────────────────────
+function showNewConnectorForm() {
+  editingConnectorId = null;
+  hideImportEditor();
+  document.getElementById('connector-detail-card').classList.add('hidden');
+  document.getElementById('templates-card').classList.add('hidden');
+  document.getElementById('conn-form-title').textContent = 'Nueva conexión MySQL';
+  ['cf-name','cf-host','cf-db','cf-user','cf-pass'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cf-port').value = '3306';
+  document.getElementById('cf-type').value = 'mysql';
+  document.getElementById('cf-pass').placeholder = '••••••••';
+  document.getElementById('connector-form-card').classList.remove('hidden');
+}
+
+function showEditConnectorForm() {
+  if (!selectedConnector) return;
+  editingConnectorId = selectedConnector.id;
+  hideImportEditor();
+  document.getElementById('conn-form-title').textContent = `Editar conexión: ${selectedConnector.name}`;
+  document.getElementById('cf-name').value = selectedConnector.name  || '';
+  document.getElementById('cf-host').value = selectedConnector.host  || '';
+  document.getElementById('cf-port').value = selectedConnector.port  || 3306;
+  document.getElementById('cf-db').value   = selectedConnector.database || '';
+  document.getElementById('cf-user').value = selectedConnector.username || '';
+  document.getElementById('cf-pass').value = '';
+  document.getElementById('cf-pass').placeholder = 'Dejar vacío para no cambiar';
+  document.getElementById('cf-type').value = selectedConnector.db_type || 'mysql';
+  document.getElementById('connector-form-card').classList.remove('hidden');
+  document.getElementById('connector-form-card').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function hideConnectorForm() {
+  document.getElementById('connector-form-card').classList.add('hidden');
+  editingConnectorId = null;
+}
+
+async function saveConnector() {
+  const name = document.getElementById('cf-name').value.trim();
+  const host = document.getElementById('cf-host').value.trim();
+  const db   = document.getElementById('cf-db').value.trim();
+  const user = document.getElementById('cf-user').value.trim();
+  if (!name || !host || !db || !user) { alert('Completa los campos obligatorios.'); return; }
+
+  const body = {
+    name, host, database: db, username: user,
+    password: document.getElementById('cf-pass').value,
+    port: parseInt(document.getElementById('cf-port').value) || 3306,
+    db_type: document.getElementById('cf-type').value,
+  };
+
+  const isEdit = editingConnectorId !== null;
+  const url    = isEdit ? `/api/connectors/${editingConnectorId}` : '/api/connectors';
+  const method = isEdit ? 'PUT' : 'POST';
+
+  const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) { alert('Error al guardar.'); return; }
+  const saved = await r.json();
+  hideConnectorForm();
+  await loadConnectors();
+  selectConnector(saved);
+}
+
+async function selectConnector(idOrObj) {
+  const c = (typeof idOrObj === 'object') ? idOrObj : _connCache[idOrObj];
+  if (!c) return;
+  selectedConnector = c;
+  hideConnectorForm();
+  hideImportEditor();
+
+  // detail card
+  document.getElementById('cd-name').textContent = c.name;
+  document.getElementById('cd-type-badge').textContent = c.db_type.toUpperCase();
+  document.getElementById('cd-host-info').textContent = `${c.host}:${c.port} / ${c.database} (${c.username})`;
+  document.getElementById('test-result').classList.add('hidden');
+  document.getElementById('connector-detail-card').classList.remove('hidden');
+  document.getElementById('templates-card').classList.remove('hidden');
+
+  // re-render list to highlight selected
+  const r = await fetch('/api/connectors');
+  renderConnectorList(await r.json());
+
+  await loadTemplates();
+}
+
+async function deleteConnector() {
+  if (!selectedConnector) return;
+  if (!confirm(`¿Eliminar la conexión "${selectedConnector.name}"?`)) return;
+  await fetch(`/api/connectors/${selectedConnector.id}`, { method:'DELETE' });
+  selectedConnector = null;
+  document.getElementById('connector-detail-card').classList.add('hidden');
+  document.getElementById('templates-card').classList.add('hidden');
+  hideImportEditor();
+  await loadConnectors();
+}
+
+async function testConnector() {
+  if (!selectedConnector) return;
+  const btn = event.currentTarget;
+  btn.disabled = true; btn.textContent = 'Probando…';
+  const r = await fetch(`/api/connectors/${selectedConnector.id}/test`, { method:'POST' });
+  const d = await r.json();
+  btn.disabled = false;
+  btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Probar conexión`;
+  const el = document.getElementById('test-result');
+  el.classList.remove('hidden','bg-green-50','text-green-700','bg-red-50','text-red-700');
+  if (d.success) {
+    el.classList.add('bg-green-50','text-green-700');
+    el.textContent = '✓ ' + d.message;
+  } else {
+    el.classList.add('bg-red-50','text-red-700');
+    el.textContent = '✗ ' + d.message;
+  }
+}
+
+// ── Templates ─────────────────────────────────────────────────────────────────
+async function loadTemplates() {
+  if (!selectedConnector) return;
+  const r = await fetch(`/api/connectors/${selectedConnector.id}/templates`);
+  const list = await r.json();
+  const el = document.getElementById('template-list');
+  if (!list.length) {
+    el.innerHTML = '<p class="px-4 py-4 text-sm text-slate-400 text-center">Sin plantillas guardadas</p>';
+    return;
+  }
+  list.forEach(t => { _tmplCache[t.id] = t; });
+  const TARGET_LABELS = { interval_volumes: 'Intervalos', historical_volumes: 'Histórico' };
+  el.innerHTML = list.map(t => `
+    <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
+      <div class="flex items-center gap-3">
+        <span class="px-2 py-0.5 text-xs rounded-full font-medium
+          ${t.target_type === 'interval_volumes' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}">
+          ${TARGET_LABELS[t.target_type] || t.target_type}
+        </span>
+        <span class="text-sm font-medium text-slate-700">${t.name}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="loadTemplate(${t.id})"
+                class="text-xs text-brand hover:underline">Abrir</button>
+        <button onclick="deleteTemplate(${t.id},'${t.name.replace(/'/g,"&#39;")}')"
+                class="text-xs text-red-400 hover:underline">Eliminar</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deleteTemplate(id, name) {
+  if (!confirm(`¿Eliminar la plantilla "${name}"?`)) return;
+  await fetch(`/api/connectors/templates/${id}`, { method:'DELETE' });
+  await loadTemplates();
+}
+
+async function loadTemplate(idOrObj) {
+  const t = (typeof idOrObj === 'object') ? idOrObj : _tmplCache[idOrObj];
+  if (!t) return;
+  editingTemplateId = t.id;
+  showImportEditor(t);
+  // Auto-run preview so dropdowns get populated, then restore saved column mapping
+  const ok = await runPreview();
+  if (!ok) return;
+  const cfg = t.config || {};
+  if (t.target_type === 'interval_volumes') {
+    if (cfg.col_interval) document.getElementById('map-col-interval').value = cfg.col_interval;
+    if (cfg.col_volume)   document.getElementById('map-col-volume-iv').value = cfg.col_volume;
+    if (cfg.col_aht)      document.getElementById('map-col-aht').value = cfg.col_aht;
+    if (cfg.col_day_type) document.getElementById('map-col-daytype').value = cfg.col_day_type;
+  } else {
+    if (cfg.col_date)   document.getElementById('map-col-date').value = cfg.col_date;
+    if (cfg.col_volume) document.getElementById('map-col-volume-hv').value = cfg.col_volume;
+  }
+}
+
+// ── Import editor ─────────────────────────────────────────────────────────────
+function showImportEditor(template) {
+  editingTemplateId = template?.id || null;
+  document.getElementById('import-editor-card').classList.remove('hidden');
+  document.getElementById('editor-title').textContent = template ? `Plantilla: ${template.name}` : 'Nueva importación';
+  document.getElementById('preview-area').classList.add('hidden');
+  document.getElementById('mapping-area').classList.add('hidden');
+  document.getElementById('import-status').textContent = '';
+  document.getElementById('preview-status').textContent = '';
+  previewColumns = [];
+
+  if (template) {
+    document.getElementById('ie-sql').value = template.query_sql || '';
+    document.getElementById('ie-target').value = template.target_type || 'interval_volumes';
+    const cfg = template.config || {};
+    if (cfg.campaign_id) document.getElementById('ie-campaign').value = cfg.campaign_id;
+    if (cfg.day_type)    document.getElementById('ie-daytype').value = cfg.day_type;
+    onTargetChange();
+  } else {
+    document.getElementById('ie-sql').value = '';
+    document.getElementById('ie-target').value = 'interval_volumes';
+    onTargetChange();
+  }
+
+  document.getElementById('import-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hideImportEditor() {
+  document.getElementById('import-editor-card').classList.add('hidden');
+  editingTemplateId = null;
+}
+
+function onTargetChange() {
+  const t = document.getElementById('ie-target').value;
+  document.getElementById('ie-daytypewrap').style.display = t === 'interval_volumes' ? '' : 'none';
+}
+
+async function runPreview() {
+  if (!selectedConnector) return false;
+  const sql = document.getElementById('ie-sql').value.trim();
+  if (!sql) { alert('Escribe una consulta SQL.'); return false; }
+
+  const statusEl = document.getElementById('preview-status');
+  statusEl.className = 'text-xs text-slate-400';
+  statusEl.textContent = 'Ejecutando…';
+  document.getElementById('preview-area').classList.add('hidden');
+  document.getElementById('mapping-area').classList.add('hidden');
+
+  const r = await fetch(`/api/connectors/${selectedConnector.id}/preview`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ sql }),
+  });
+  const d = await r.json();
+
+  if (!r.ok || d.error) {
+    statusEl.textContent = '✗ ' + (d.error || 'Error');
+    statusEl.className = 'text-sm text-red-500';
+    return false;
+  }
+
+  previewColumns = d.columns;
+  const limitHit = d.count >= 20;
+  statusEl.textContent = limitHit
+    ? `Mostrando primeras 20 filas · ${d.columns.length} columnas — la importación usa hasta 10 000`
+    : `${d.count} filas · ${d.columns.length} columnas`;
+
+  const thead = document.querySelector('#preview-table thead');
+  const tbody = document.querySelector('#preview-table tbody');
+  thead.innerHTML = `<tr>${d.columns.map(c=>`<th class="text-left px-3 py-2 whitespace-nowrap">${c}</th>`).join('')}</tr>`;
+  tbody.innerHTML = d.rows.map(row =>
+    `<tr class="hover:bg-slate-50">${row.map(v =>
+      `<td class="px-3 py-1.5 whitespace-nowrap text-slate-700">${v === null ? '<span class="text-slate-300">NULL</span>' : v}</td>`
+    ).join('')}</tr>`
+  ).join('');
+  document.getElementById('preview-area').classList.remove('hidden');
+
+  populateMappingDropdowns(d.columns);
+  document.getElementById('mapping-area').classList.remove('hidden');
+  return true;
+}
+
+function populateMappingDropdowns(columns) {
+  const opts = columns.map(c => `<option value="${c}">${c}</option>`).join('');
+  const optsWithEmpty = `<option value="">— Ninguna —</option>` + opts;
+
+  document.getElementById('map-col-interval').innerHTML = opts;
+  document.getElementById('map-col-volume-iv').innerHTML = opts;
+  document.getElementById('map-col-aht').innerHTML = optsWithEmpty;
+  document.getElementById('map-col-daytype').innerHTML = optsWithEmpty;
+  document.getElementById('map-col-date').innerHTML = opts;
+  document.getElementById('map-col-volume-hv').innerHTML = opts;
+
+  // auto-detect common column names
+  const lower = columns.map(c => c.toLowerCase());
+  const autoSelect = (id, candidates) => {
+    candidates.find(kw => lower.some((l, i) => l.includes(kw) ? (document.getElementById(id).value = columns[i], true) : false));
+  };
+  autoSelect('map-col-interval',  ['interval','intervalo','hora','time','slot']);
+  autoSelect('map-col-volume-iv', ['volumen','volume','llamadas','calls','contacts','cantidad']);
+  autoSelect('map-col-aht',       ['aht','tmo','tme','handle_time','tiempo_medio','duracion']);
+  autoSelect('map-col-date',      ['fecha','date','dia','day']);
+  autoSelect('map-col-volume-hv', ['volumen','volume','total','llamadas','calls']);
+  autoSelect('map-col-daytype',   ['tipo','day_type','tipo_dia']);
+
+  const target = document.getElementById('ie-target').value;
+  document.getElementById('map-interval').classList.toggle('hidden', target !== 'interval_volumes');
+  document.getElementById('map-historical').classList.toggle('hidden', target !== 'historical_volumes');
+}
+
+async function runImport() {
+  if (!selectedConnector) return;
+  const sql        = document.getElementById('ie-sql').value.trim();
+  const target     = document.getElementById('ie-target').value;
+  const campaignId = document.getElementById('ie-campaign').value;
+  const dayType    = document.getElementById('ie-daytype').value;
+
+  const mapping = {};
+  if (target === 'interval_volumes') {
+    mapping.col_interval = document.getElementById('map-col-interval').value;
+    mapping.col_volume   = document.getElementById('map-col-volume-iv').value;
+    const aht = document.getElementById('map-col-aht').value;
+    if (aht) mapping.col_aht = aht;
+    const dt = document.getElementById('map-col-daytype').value;
+    if (dt) mapping.col_day_type = dt;
+  } else {
+    mapping.col_date   = document.getElementById('map-col-date').value;
+    mapping.col_volume = document.getElementById('map-col-volume-hv').value;
+  }
+
+  const statusEl = document.getElementById('import-status');
+  statusEl.textContent = 'Importando…';
+  statusEl.className = 'text-sm text-slate-400';
+
+  const r = await fetch(`/api/connectors/${selectedConnector.id}/import`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ sql, target_type: target, campaign_id: campaignId, day_type: dayType, mapping }),
+  });
+  const d = await r.json();
+
+  if (!r.ok || d.error) {
+    statusEl.textContent = '✗ ' + (d.error || 'Error');
+    statusEl.className = 'text-sm text-red-500';
+    return;
+  }
+
+  statusEl.className = 'text-sm text-green-600 font-medium';
+  statusEl.textContent = `✓ ${d.imported} registros importados`;
+  if (d.errors?.length) {
+    statusEl.textContent += ` · ${d.errors.length} advertencias`;
+    console.warn('Import warnings:', d.errors);
+  }
+}
+
+// ── Save template modal ────────────────────────────────────────────────────────
+function showSaveTemplateModal() {
+  document.getElementById('save-tmpl-modal').classList.remove('hidden');
+  document.getElementById('tmpl-name-input').focus();
+}
+
+async function confirmSaveTemplate() {
+  const name = document.getElementById('tmpl-name-input').value.trim();
+  if (!name) { alert('Escribe un nombre para la plantilla.'); return; }
+  if (!selectedConnector) return;
+
+  const sql    = document.getElementById('ie-sql').value.trim();
+  const target = document.getElementById('ie-target').value;
+  const config = {
+    campaign_id: document.getElementById('ie-campaign').value,
+    day_type:    document.getElementById('ie-daytype').value,
+  };
+  if (target === 'interval_volumes') {
+    config.col_interval = document.getElementById('map-col-interval').value;
+    config.col_volume   = document.getElementById('map-col-volume-iv').value;
+    config.col_aht      = document.getElementById('map-col-aht').value;
+    config.col_day_type = document.getElementById('map-col-daytype').value;
+  } else {
+    config.col_date   = document.getElementById('map-col-date').value;
+    config.col_volume = document.getElementById('map-col-volume-hv').value;
+  }
+
+  const url    = editingTemplateId
+    ? `/api/connectors/templates/${editingTemplateId}`
+    : `/api/connectors/${selectedConnector.id}/templates`;
+  const method = editingTemplateId ? 'PUT' : 'POST';
+
+  // PUT not implemented yet — just POST a new one
+  const r = await fetch(`/api/connectors/${selectedConnector.id}/templates`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, target_type: target, query_sql: sql, config }),
+  });
+
+  if (r.ok) {
+    document.getElementById('save-tmpl-modal').classList.add('hidden');
+    document.getElementById('tmpl-name-input').value = '';
+    await loadTemplates();
+    document.getElementById('import-status').textContent = '✓ Plantilla guardada';
+    document.getElementById('import-status').className = 'text-sm text-green-600 font-medium';
+  } else {
+    alert('Error al guardar la plantilla.');
+  }
+}
+</script>
+{% endblock %}

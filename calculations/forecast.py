@@ -162,8 +162,9 @@ def forecast_volume(
 
 def shrinkage_components() -> Dict:
     """
-    Standard shrinkage components (industry reference values).
-    Total shrinkage typically 25-35% in contact centers.
+    Shrinkage de referencia SIN refrigerio (almuerzo).
+    El refrigerio se modela como tiempo fuera de jornada en la definición de turnos,
+    no como shrinkage, siguiendo el estándar de contact centers en Perú.
     """
     return {
         "external": {
@@ -176,9 +177,10 @@ def shrinkage_components() -> Dict:
             "capacitacion": 4.0,
             "reuniones": 2.0,
             "coaching": 1.5,
-            "breaks_almuerzo": 8.5,
-            "tiempo_no_productivo": 2.0,
-            "subtotal": 18.0,
+            "pausas_biologicas": 2.0,
+            "tiempo_no_productivo": 1.0,
+            "subtotal": 10.5,
         },
-        "total_reference": 29.0,
+        "nota": "El refrigerio (almuerzo) NO está incluido: se define en la jornada laboral como tiempo fuera de jornada efectiva (Ley N° 27671).",
+        "total_reference": 21.5,
     }
