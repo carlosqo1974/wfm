@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-50">
+<html lang="es" class="h-full bg-slate-100">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,12 +11,12 @@
     }
   </script>
   <style>
-    .sl-good { background:#dcfce7; color:#15803d; font-weight:600 }
-    .sl-warn { background:#fef9c3; color:#a16207; font-weight:600 }
-    .sl-bad  { background:#fee2e2; color:#b91c1c; font-weight:600 }
-    .occ-good { background:#dcfce7 }
-    .occ-warn { background:#fef9c3 }
-    .occ-bad  { background:#fee2e2 }
+    .sl-good { background:#bbf7d0; color:#14532d; font-weight:700 }
+    .sl-warn { background:#fef08a; color:#854d0e; font-weight:700 }
+    .sl-bad  { background:#fecaca; color:#991b1b; font-weight:700 }
+    .occ-good { background:#bbf7d0; color:#14532d }
+    .occ-warn { background:#fef08a; color:#854d0e }
+    .occ-bad  { background:#fecaca; color:#991b1b }
     .vol-grid { display:grid; grid-template-columns:58px 1fr; gap:3px 8px; align-items:center; max-height:420px; overflow-y:auto; padding-right:4px }
     .vol-grid label { font-size:11px; color:#64748b; text-align:right }
     .vol-grid input { padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:100%; outline:none }
@@ -30,9 +30,9 @@
   <aside class="hidden md:flex flex-col w-52 bg-white border-r border-slate-200 shrink-0">
 
     <!-- Logo directo sobre fondo blanco, sin caja -->
-    <div class="px-5 py-5 border-b border-slate-100">
+    <div class="px-4 py-4 border-b border-slate-200">
       <img src="/static/coam_wfw.png" alt="COAM WFM"
-           class="h-10 w-auto object-contain" style="mix-blend-mode:multiply;">
+           class="h-16 w-auto object-contain" style="mix-blend-mode:multiply;">
     </div>
 
     <!-- Nav -->
@@ -42,7 +42,7 @@
       <!-- Dashboard -->
       <a href="/"
          class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                {{ 'bg-brand text-white' if path == '/' else 'text-slate-600 hover:bg-slate-50' }}">
+                {{ 'bg-brand text-white' if path == '/' else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -53,7 +53,7 @@
       <!-- Calculadora -->
       <a href="/calculator"
          class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                {{ 'bg-brand text-white' if path == '/calculator' else 'text-slate-600 hover:bg-slate-50' }}">
+                {{ 'bg-brand text-white' if path == '/calculator' else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <rect x="4" y="2" width="16" height="20" rx="2"/>
           <line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="10" y2="12"/>
@@ -64,19 +64,21 @@
       </a>
 
       <!-- Sección Campañas -->
-      <p class="px-3 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">Campañas</p>
+      <p class="px-3 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-widest">Campañas</p>
 
       <a href="/campaigns/new"
          class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                {{ 'bg-brand text-white' if path == '/campaigns/new' else 'text-slate-600 hover:bg-slate-50' }}">
+                {{ 'bg-brand text-white' if path == '/campaigns/new' else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
         </svg>
         Nueva campaña
       </a>
 
+      {% set q_type = request.args.get('type') %}
       <a href="/?type=inbound"
-         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                {{ 'bg-indigo-50 text-indigo-700' if path == '/' and q_type == 'inbound' else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/>
         </svg>
@@ -84,7 +86,8 @@
       </a>
 
       <a href="/?type=outbound"
-         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                {{ 'bg-orange-50 text-orange-700' if path == '/' and q_type == 'outbound' else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
@@ -92,7 +95,8 @@
       </a>
 
       <a href="/?type=chat"
-         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                {{ 'bg-emerald-50 text-emerald-700' if path == '/' and q_type == 'chat' else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
         </svg>
@@ -102,7 +106,7 @@
       <!-- Jornadas -->
       <a href="/jornadas"
          class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                {{ 'bg-brand text-white' if path.startswith('/jornadas') else 'text-slate-600 hover:bg-slate-50' }}">
+                {{ 'bg-brand text-white' if path.startswith('/jornadas') else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
           <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -112,11 +116,11 @@
       </a>
 
       <!-- Sección Integraciones -->
-      <p class="px-3 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">Integraciones</p>
+      <p class="px-3 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-widest">Integraciones</p>
 
       <a href="/connectors"
          class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                {{ 'bg-brand text-white' if path.startswith('/connectors') else 'text-slate-600 hover:bg-slate-50' }}">
+                {{ 'bg-brand text-white' if path.startswith('/connectors') else 'text-slate-600 hover:bg-slate-100' }}">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path d="M4 6h16M4 12h16M4 18h7"/><circle cx="17" cy="18" r="3"/>
           <path d="M17 15v3l2 1"/>
@@ -125,10 +129,10 @@
       </a>
 
       <!-- Sección Referencia -->
-      <p class="px-3 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">Referencia</p>
+      <p class="px-3 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-widest">Referencia</p>
 
       <a href="#" onclick="showShrinkage();return false"
-         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
           <line x1="6" y1="20" x2="6" y2="14"/>
@@ -138,12 +142,12 @@
     </nav>
 
     <!-- Footer -->
-    <div class="p-3 border-t border-slate-100">
+    <div class="p-3 border-t border-slate-200">
       <div class="flex items-center gap-2 px-2 py-1.5">
         <div class="w-7 h-7 rounded-full bg-brand flex items-center justify-center text-xs text-white font-bold shrink-0">W</div>
         <div class="flex-1 min-w-0">
           <p class="text-xs font-medium text-slate-700 truncate">WFM</p>
-          <p class="text-xs text-slate-400">Contact Center</p>
+          <p class="text-xs text-slate-500">Contact Center</p>
         </div>
       </div>
     </div>
@@ -151,7 +155,7 @@
 
   <!-- ── Main — igual al dialer (sin topbar) ───────────────────────────── -->
   <div class="flex-1 flex flex-col overflow-hidden">
-    <main class="flex-1 overflow-y-auto bg-slate-50">
+    <main class="flex-1 overflow-y-auto bg-slate-100">
       <div class="p-6 max-w-7xl mx-auto">
         {% block content %}{% endblock %}
       </div>
@@ -162,10 +166,10 @@
 <!-- ── Shrinkage modal ───────────────────────────────────────────────────── -->
 <div id="shrinkage-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
       <h3 class="font-semibold text-slate-800">Shrinkage de referencia</h3>
       <button onclick="document.getElementById('shrinkage-modal').classList.add('hidden')"
-              class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              class="text-slate-500 hover:text-slate-700 text-xl leading-none">×</button>
     </div>
     <div id="shrinkage-content" class="p-5 text-sm"></div>
   </div>
@@ -177,14 +181,14 @@ function showShrinkage() {
     const rows = (obj, skip) => Object.entries(obj).filter(([k])=>k!==skip)
       .map(([k,v])=>`<tr><td class="py-1 text-slate-500 capitalize">${k.replace(/_/g,' ')}</td><td class="py-1 text-right font-mono text-slate-700">${v}%</td></tr>`).join('');
     document.getElementById('shrinkage-content').innerHTML = `
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Externo</p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Externo</p>
       <table class="w-full mb-3">${rows(d.external,'subtotal')}
-        <tr class="border-t border-slate-100"><td class="pt-2 font-semibold text-slate-700">Subtotal externo</td><td class="pt-2 text-right font-mono font-semibold">${d.external.subtotal}%</td></tr></table>
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Interno</p>
+        <tr class="border-t border-slate-200"><td class="pt-2 font-semibold text-slate-700">Subtotal externo</td><td class="pt-2 text-right font-mono font-semibold">${d.external.subtotal}%</td></tr></table>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Interno</p>
       <table class="w-full mb-4">${rows(d.internal,'subtotal')}
-        <tr class="border-t border-slate-100"><td class="pt-2 font-semibold text-slate-700">Subtotal interno</td><td class="pt-2 text-right font-mono font-semibold">${d.internal.subtotal}%</td></tr></table>
+        <tr class="border-t border-slate-200"><td class="pt-2 font-semibold text-slate-700">Subtotal interno</td><td class="pt-2 text-right font-mono font-semibold">${d.internal.subtotal}%</td></tr></table>
       <div class="bg-brand rounded-xl px-4 py-3 text-center text-white font-bold text-lg">Total: ${d.total_reference}%</div>
-      <p class="text-xs text-slate-400 mt-3 text-center">Fuente: Genesys · NICE · Verint</p>`;
+      <p class="text-xs text-slate-500 mt-3 text-center">Fuente: Genesys · NICE · Verint</p>`;
     document.getElementById('shrinkage-modal').classList.remove('hidden');
   });
 }

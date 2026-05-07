@@ -9,7 +9,8 @@
       "Bash(python3 -c ' *)",
       "Bash(curl *)",
       "Bash(python3 -m json.tool)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "Bash(venv/bin/pip install *)"
     ]
   }
 }

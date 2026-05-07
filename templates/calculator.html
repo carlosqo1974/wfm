@@ -7,23 +7,23 @@
 <div class="grid md:grid-cols-2 gap-5 items-start">
 
   <!-- Erlang C -->
-  <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100">
-      <h3 class="font-semibold text-slate-700">Erlang C — Dimensionamiento Inbound</h3>
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-200">
+      <h3 class="font-semibold text-slate-800">Erlang C — Dimensionamiento Inbound</h3>
     </div>
     <div class="p-5 grid grid-cols-2 gap-4">
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Llamadas en el intervalo</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">Llamadas en el intervalo</label>
         <input type="number" id="ec-calls" value="100" min="1"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">AHT (segundos)</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">AHT (segundos)</label>
         <input type="number" id="ec-aht" value="180" min="10" max="3600"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Intervalo</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">Intervalo</label>
         <select id="ec-interval" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand bg-white">
           <option value="900">15 min</option>
           <option value="1800" selected>30 min</option>
@@ -31,22 +31,22 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Nivel de Servicio (%)</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">Nivel de Servicio (%)</label>
         <input type="number" id="ec-sl" value="80" min="50" max="99"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Responder en (seg)</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">Responder en (seg)</label>
         <input type="number" id="ec-target" value="20" min="1" max="120"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Ocupación máx. (%)</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">Ocupación máx. (%)</label>
         <input type="number" id="ec-occ" value="85" min="50" max="98"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
       </div>
       <div class="col-span-2">
-        <label class="block text-xs font-medium text-slate-600 mb-1">Shrinkage (%)</label>
+        <label class="block text-xs font-semibold text-slate-800 mb-1">Shrinkage (%)</label>
         <input type="number" id="ec-shrink" value="30" min="0" max="60"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
       </div>
@@ -57,33 +57,33 @@
         Calcular
       </button>
     </div>
-    <div id="erlang-result" class="border-t border-slate-100"></div>
+    <div id="erlang-result" class="border-t border-slate-200"></div>
   </div>
 
   <!-- Derecha -->
   <div class="space-y-5">
 
     <!-- Erlang B -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h3 class="font-semibold text-slate-700">Erlang B — Dimensionamiento de troncales</h3>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200">
+        <h3 class="font-semibold text-slate-800">Erlang B — Dimensionamiento de troncales</h3>
       </div>
       <div class="p-5 grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Tráfico (Erlangs)</label>
+          <label class="block text-xs font-semibold text-slate-800 mb-1">Tráfico (Erlangs)</label>
           <input type="number" id="eb-traffic" value="10" min="0.1" step="0.1"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
-          <p class="text-xs text-slate-400 mt-1">A = llamadas/hora × (AHT/3600)</p>
+          <p class="text-xs text-slate-500 mt-1">A = llamadas/hora × (AHT/3600)</p>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Bloqueo máximo (%)</label>
+          <label class="block text-xs font-semibold text-slate-800 mb-1">Bloqueo máximo (%)</label>
           <input type="number" id="eb-blocking" value="2" min="0.1" max="20" step="0.1"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
         </div>
       </div>
       <div class="px-5 pb-5">
         <button onclick="calcTrunks()"
-                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors">
+                class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-colors">
           Calcular troncales
         </button>
         <div id="trunk-result" class="mt-4"></div>
@@ -91,18 +91,18 @@
     </div>
 
     <!-- Conversor -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h3 class="font-semibold text-slate-700">Conversor de tráfico</h3>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200">
+        <h3 class="font-semibold text-slate-800">Conversor de tráfico</h3>
       </div>
       <div class="p-5 grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Llamadas/hora</label>
+          <label class="block text-xs font-semibold text-slate-800 mb-1">Llamadas/hora</label>
           <input type="number" id="conv-calls" value="200" oninput="convertTraffic()"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand">
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">AHT (segundos)</label>
+          <label class="block text-xs font-semibold text-slate-800 mb-1">AHT (segundos)</label>
           <input type="number" id="conv-aht" value="180" oninput="convertTraffic()"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand">
         </div>
@@ -113,30 +113,30 @@
     </div>
 
     <!-- Fórmulas -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h3 class="font-semibold text-slate-700">Fórmulas de referencia</h3>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200">
+        <h3 class="font-semibold text-slate-800">Fórmulas de referencia</h3>
       </div>
       <div class="p-5 space-y-3">
         <div class="bg-slate-50 rounded-lg p-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase mb-1">Tráfico</p>
-          <p class="font-mono text-xs text-slate-600">A = λ × h &nbsp;·&nbsp; (λ = llegadas/seg, h = AHT seg)</p>
+          <p class="text-xs font-semibold text-slate-600 uppercase mb-1">Tráfico</p>
+          <p class="font-mono text-xs text-slate-700">A = λ × h &nbsp;·&nbsp; (λ = llegadas/seg, h = AHT seg)</p>
         </div>
         <div class="bg-slate-50 rounded-lg p-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase mb-1">Erlang C</p>
-          <p class="font-mono text-xs text-slate-600">C(N,A) = (A<sup>N</sup>/N! × N/(N−A)) / (Σ A<sup>k</sup>/k! + …)</p>
+          <p class="text-xs font-semibold text-slate-600 uppercase mb-1">Erlang C</p>
+          <p class="font-mono text-xs text-slate-700">C(N,A) = (A<sup>N</sup>/N! × N/(N−A)) / (Σ A<sup>k</sup>/k! + …)</p>
         </div>
         <div class="bg-slate-50 rounded-lg p-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase mb-1">Nivel de Servicio</p>
-          <p class="font-mono text-xs text-slate-600">NS = 1 − C(N,A) × e<sup>−(N−A)·t/AHT</sup></p>
+          <p class="text-xs font-semibold text-slate-600 uppercase mb-1">Nivel de Servicio</p>
+          <p class="font-mono text-xs text-slate-700">NS = 1 − C(N,A) × e<sup>−(N−A)·t/AHT</sup></p>
         </div>
         <div class="bg-slate-50 rounded-lg p-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase mb-1">ASA</p>
-          <p class="font-mono text-xs text-slate-600">ASA = C(N,A) × AHT / (N−A)</p>
+          <p class="text-xs font-semibold text-slate-600 uppercase mb-1">ASA</p>
+          <p class="font-mono text-xs text-slate-700">ASA = C(N,A) × AHT / (N−A)</p>
         </div>
         <div class="bg-slate-50 rounded-lg p-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase mb-1">Ocupación</p>
-          <p class="font-mono text-xs text-slate-600">ρ = A/N &nbsp;·&nbsp; máx. recomendado: 85%</p>
+          <p class="text-xs font-semibold text-slate-600 uppercase mb-1">Ocupación</p>
+          <p class="font-mono text-xs text-slate-700">ρ = A/N &nbsp;·&nbsp; máx. recomendado: 85%</p>
         </div>
       </div>
     </div>
@@ -186,13 +186,13 @@ async function calcErlang(){
   const slC=sl>=80?'text-emerald-600':sl>=70?'text-amber-500':'text-red-600';
   const ocC=occ<=85?'text-emerald-600':occ<=90?'text-amber-500':'text-red-600';
   document.getElementById('erlang-result').innerHTML=`
-    <div class="grid grid-cols-3 divide-x divide-slate-100">
-      <div class="p-4 text-center"><p class="text-xs text-slate-500 uppercase">Tráfico</p><p class="text-2xl font-bold text-slate-800 mt-1">${d.traffic_intensity} <span class="text-sm font-normal text-slate-400">Erl</span></p></div>
-      <div class="p-4 text-center"><p class="text-xs text-slate-500 uppercase">Ag. Productivos</p><p class="text-2xl font-bold text-brand mt-1">${d.productive_agents}</p></div>
-      <div class="p-4 text-center"><p class="text-xs text-slate-500 uppercase">Ag. Brutos</p><p class="text-2xl font-bold text-slate-800 mt-1">${d.gross_agents}</p></div>
-      <div class="p-4 text-center"><p class="text-xs text-slate-500 uppercase">Nivel Servicio</p><p class="text-2xl font-bold ${slC} mt-1">${sl.toFixed(2)}%</p></div>
-      <div class="p-4 text-center"><p class="text-xs text-slate-500 uppercase">ASA</p><p class="text-2xl font-bold text-slate-800 mt-1">${d.asa_seconds}s</p></div>
-      <div class="p-4 text-center"><p class="text-xs text-slate-500 uppercase">Ocupación</p><p class="text-2xl font-bold ${ocC} mt-1">${occ.toFixed(1)}%</p></div>
+    <div class="grid grid-cols-3 divide-x divide-slate-200">
+      <div class="p-4 text-center"><p class="text-xs text-slate-600 uppercase">Tráfico</p><p class="text-2xl font-bold text-slate-800 mt-1">${d.traffic_intensity} <span class="text-sm font-normal text-slate-500">Erl</span></p></div>
+      <div class="p-4 text-center"><p class="text-xs text-slate-600 uppercase">Ag. Productivos</p><p class="text-2xl font-bold text-brand mt-1">${d.productive_agents}</p></div>
+      <div class="p-4 text-center"><p class="text-xs text-slate-600 uppercase">Ag. Brutos</p><p class="text-2xl font-bold text-slate-800 mt-1">${d.gross_agents}</p></div>
+      <div class="p-4 text-center"><p class="text-xs text-slate-600 uppercase">Nivel Servicio</p><p class="text-2xl font-bold ${slC} mt-1">${sl.toFixed(2)}%</p></div>
+      <div class="p-4 text-center"><p class="text-xs text-slate-600 uppercase">ASA</p><p class="text-2xl font-bold text-slate-800 mt-1">${d.asa_seconds}s</p></div>
+      <div class="p-4 text-center"><p class="text-xs text-slate-600 uppercase">Ocupación</p><p class="text-2xl font-bold ${ocC} mt-1">${occ.toFixed(1)}%</p></div>
     </div>`;
 }
 
@@ -215,9 +215,9 @@ async function calcTrunks(){
 
   document.getElementById('trunk-result').innerHTML=`
     <div class="bg-slate-50 rounded-xl p-4 text-center">
-      <p class="text-xs text-slate-500 uppercase">Troncales necesarias</p>
+      <p class="text-xs text-slate-600 uppercase">Troncales necesarias</p>
       <p class="text-3xl font-bold text-brand mt-1">${d.trunks}</p>
-      <p class="text-xs text-slate-400 mt-1">${d.traffic} Erl · bloqueo ≤ ${((+d.blocking_target||0)*100).toFixed(1)}%</p>
+      <p class="text-xs text-slate-500 mt-1">${d.traffic} Erl · bloqueo ≤ ${((+d.blocking_target||0)*100).toFixed(1)}%</p>
     </div>`;
 }
 

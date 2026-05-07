@@ -27,7 +27,7 @@ def weighted_moving_average(data: List[float], weights: List[float]) -> List[Opt
         if i < w - 1:
             result.append(None)
         else:
-            wma = sum(data[i - w + k] * weights[k] for k in range(w)) / total_weight
+            wma = sum(data[i - w + 1 + k] * weights[k] for k in range(w)) / total_weight
             result.append(round(wma, 2))
     return result
 

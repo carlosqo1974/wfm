@@ -12,4 +12,9 @@ echo "  ║   http://localhost:${PORT}                          ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo ""
 
-python3 app.py
+PYTHON="python3"
+if [ -f "venv/bin/python3" ]; then
+  PYTHON="venv/bin/python3"
+fi
+
+$PYTHON app.py

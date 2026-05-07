@@ -1,0 +1,5 @@
+venv/
+data/wfm.db
+data/reports/
+__pycache__/
+*.pyc

@@ -24,11 +24,11 @@
 
     <!-- ── Left: connector list ──────────────────────────────────────────── -->
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
+      <div class="px-4 py-3 border-b border-slate-200">
         <h2 class="text-sm font-semibold text-slate-700">Conexiones guardadas</h2>
       </div>
       <div id="connector-list" class="divide-y divide-slate-100 min-h-[80px]">
-        <p class="px-4 py-6 text-sm text-slate-400 text-center">Cargando…</p>
+        <p class="px-4 py-6 text-sm text-slate-500 text-center">Cargando…</p>
       </div>
     </div>
 
@@ -123,7 +123,7 @@
 
       <!-- Templates list -->
       <div id="templates-card" class="hidden bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
           <h2 class="text-sm font-semibold text-slate-700">Plantillas de importación</h2>
           <button onclick="showImportEditor(null)"
                   class="flex items-center gap-1.5 text-xs font-medium text-brand hover:underline">
@@ -141,7 +141,7 @@
       <div id="import-editor-card" class="hidden bg-white rounded-xl border border-slate-200 p-5 space-y-5">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-slate-700" id="editor-title">Nueva importación</h2>
-          <button onclick="hideImportEditor()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onclick="hideImportEditor()" class="text-slate-500 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
 
         <!-- Target config row -->
@@ -178,7 +178,7 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-xs font-medium text-slate-600">Consulta SQL de normalización</label>
-            <span class="text-xs text-slate-400">Solo SELECT / WITH</span>
+            <span class="text-xs text-slate-500">Solo SELECT / WITH</span>
           </div>
           <textarea id="ie-sql" rows="8" spellcheck="false"
                     placeholder="-- Ejemplo para volúmenes de Genesys:
@@ -201,7 +201,7 @@ ORDER BY intervalo"
             </svg>
             Previsualizar (20 filas)
           </button>
-          <span id="preview-status" class="text-xs text-slate-400"></span>
+          <span id="preview-status" class="text-xs text-slate-500"></span>
         </div>
 
         <!-- Preview table -->
@@ -216,7 +216,7 @@ ORDER BY intervalo"
 
         <!-- Column mapping (appears after preview) -->
         <div id="mapping-area" class="hidden space-y-4">
-          <div class="border-t border-slate-100 pt-4">
+          <div class="border-t border-slate-200 pt-4">
             <h3 class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Mapeo de columnas</h3>
 
             <!-- Interval volumes mapping -->
@@ -225,7 +225,7 @@ ORDER BY intervalo"
                 <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Intervalo <span class="text-red-400">*</span></label>
                 <select id="map-col-interval"
                         class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
-                <p class="text-xs text-slate-400 mt-0.5">Se normaliza a HH:MM</p>
+                <p class="text-xs text-slate-500 mt-0.5">Se normaliza a HH:MM</p>
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Volumen <span class="text-red-400">*</span></label>
@@ -233,20 +233,20 @@ ORDER BY intervalo"
                         class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → TMO / AHT (seg) <span class="text-slate-400">(opcional)</span></label>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → TMO / AHT (seg) <span class="text-slate-500">(opcional)</span></label>
                 <select id="map-col-aht"
                         class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
                   <option value="">— No importar AHT —</option>
                 </select>
-                <p class="text-xs text-slate-400 mt-0.5">Promedio ponderado si hay múltiples filas por intervalo</p>
+                <p class="text-xs text-slate-500 mt-0.5">Promedio ponderado si hay múltiples filas por intervalo</p>
               </div>
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Tipo de día <span class="text-slate-400">(opcional)</span></label>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Tipo de día <span class="text-slate-500">(opcional)</span></label>
                 <select id="map-col-daytype"
                         class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
                   <option value="">— Usar fallback —</option>
                 </select>
-                <p class="text-xs text-slate-400 mt-0.5">sat/sab → sábado, sun/dom → domingo</p>
+                <p class="text-xs text-slate-500 mt-0.5">sat/sab → sábado, sun/dom → domingo</p>
               </div>
             </div>
 
@@ -256,7 +256,7 @@ ORDER BY intervalo"
                 <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Fecha <span class="text-red-400">*</span></label>
                 <select id="map-col-date"
                         class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand"></select>
-                <p class="text-xs text-slate-400 mt-0.5">Se normaliza a YYYY-MM-DD</p>
+                <p class="text-xs text-slate-500 mt-0.5">Se normaliza a YYYY-MM-DD</p>
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Columna → Volumen total <span class="text-red-400">*</span></label>
@@ -327,7 +327,7 @@ function renderConnectorList(list) {
   list.forEach(c => { _connCache[c.id] = c; });
   const el = document.getElementById('connector-list');
   if (!list.length) {
-    el.innerHTML = '<p class="px-4 py-6 text-sm text-slate-400 text-center">Sin conexiones guardadas</p>';
+    el.innerHTML = '<p class="px-4 py-6 text-sm text-slate-500 text-center">Sin conexiones guardadas</p>';
     return;
   }
   el.innerHTML = list.map(c => `
@@ -339,7 +339,7 @@ function renderConnectorList(list) {
       </span>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium text-slate-800 truncate">${c.name}</p>
-        <p class="text-xs text-slate-400 truncate">${c.host}:${c.port} / ${c.database}</p>
+        <p class="text-xs text-slate-500 truncate">${c.host}:${c.port} / ${c.database}</p>
       </div>
     </button>`).join('');
 }
@@ -465,7 +465,7 @@ async function loadTemplates() {
   const list = await r.json();
   const el = document.getElementById('template-list');
   if (!list.length) {
-    el.innerHTML = '<p class="px-4 py-4 text-sm text-slate-400 text-center">Sin plantillas guardadas</p>';
+    el.innerHTML = '<p class="px-4 py-4 text-sm text-slate-500 text-center">Sin plantillas guardadas</p>';
     return;
   }
   list.forEach(t => { _tmplCache[t.id] = t; });
@@ -557,7 +557,7 @@ async function runPreview() {
   if (!sql) { alert('Escribe una consulta SQL.'); return false; }
 
   const statusEl = document.getElementById('preview-status');
-  statusEl.className = 'text-xs text-slate-400';
+  statusEl.className = 'text-xs text-slate-500';
   statusEl.textContent = 'Ejecutando…';
   document.getElementById('preview-area').classList.add('hidden');
   document.getElementById('mapping-area').classList.add('hidden');
@@ -645,7 +645,7 @@ async function runImport() {
 
   const statusEl = document.getElementById('import-status');
   statusEl.textContent = 'Importando…';
-  statusEl.className = 'text-sm text-slate-400';
+  statusEl.className = 'text-sm text-slate-500';
 
   const r = await fetch(`/api/connectors/${selectedConnector.id}/import`, {
     method: 'POST', headers: {'Content-Type':'application/json'},

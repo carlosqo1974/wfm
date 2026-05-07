@@ -73,16 +73,16 @@ def agents_needed(
     raw_agents = total_productive_seconds / agent_seconds_per_agent
     productive_agents = max(1, math.ceil(raw_agents))
 
-    # Predictive: check abandonment rate
-    # Abandonment ≈ (dial_rate - answer_rate) / dial_rate when calls exceed agents
-    dial_rate_per_agent = efficiency / (aht_seconds / 3600)  # dials per agent per hour
-    answer_rate = contact_rate
-    est_abandonment = max(0, (dial_rate_per_agent * productive_agents * answer_rate -
-                              productive_agents / (aht_seconds / 3600)) /
-                         (dial_rate_per_agent * productive_agents * answer_rate + 0.0001))
+    # Dials per agent per hour (efficiency already encodes lines-per-agent ratio)
+    dial_rate_per_agent = efficiency * 3600 / aht_seconds
 
-    # Campaign duration estimate
-    campaign_hours = total_dials / (productive_agents * dial_rate_per_agent * efficiency) if productive_agents > 0 else 0
+    # Abandonment: when efficiency > 1 the dialer places more calls than agents can absorb.
+    # Upper-bound estimate: (efficiency - 1) / efficiency of answered calls find no agent.
+    # For progressive/preview (efficiency ≤ 1) there is no dialer-driven abandonment.
+    est_abandonment = (efficiency - 1.0) / efficiency if efficiency > 1.0 else 0.0
+
+    # Campaign duration estimate (dial_rate_per_agent already includes efficiency)
+    campaign_hours = total_dials / (productive_agents * dial_rate_per_agent) if productive_agents > 0 else 0
 
     hourly_volume = right_party_contacts / available_hours if available_hours > 0 else 0
 

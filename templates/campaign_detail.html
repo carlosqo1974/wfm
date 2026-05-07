@@ -9,14 +9,16 @@
     <div>
       <div class="flex items-center gap-3">
         <h1 class="text-xl font-bold text-slate-800">{{ campaign.name }}</h1>
-        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-          {% if campaign.campaign_type == 'inbound' %}Entrante
-          {% elif campaign.campaign_type == 'outbound' %}Saliente
-          {% else %}Chat{% endif %}
-        </span>
+        {% if campaign.campaign_type == 'inbound' %}
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">Entrante</span>
+        {% elif campaign.campaign_type == 'outbound' %}
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Saliente</span>
+        {% else %}
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Chat</span>
+        {% endif %}
       </div>
       <p class="text-sm text-slate-500 mt-0.5">
-        AHT {{ campaign.aht_seconds|int }}s · Shrinkage {{ (campaign.shrinkage*100)|int }}% · Intervalo {{ campaign.interval_minutes }}min
+        AHT {{ campaign.aht_seconds|format_aht }} · Shrinkage {{ (campaign.shrinkage*100)|int }}% · Intervalo {{ campaign.interval_minutes }}min
         {% if campaign.campaign_type != 'outbound' %} · NS {{ (campaign.target_sl*100)|int }}% / {{ campaign.target_seconds|int }}s{% endif %}
       </p>
     </div>
@@ -38,39 +40,39 @@
   <!-- ── KPI summary cards ─────────────────────────────────────────────── -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">AHT</p>
-      <p class="text-2xl font-bold text-slate-800 mt-1">{{ campaign.aht_seconds|int }}<span class="text-sm font-normal text-slate-400 ml-1">seg</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">AHT</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ campaign.aht_seconds|format_aht }}</p>
     </div>
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">Shrinkage</p>
-      <p class="text-2xl font-bold text-slate-800 mt-1">{{ (campaign.shrinkage*100)|int }}<span class="text-sm font-normal text-slate-400 ml-1">%</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Shrinkage</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ (campaign.shrinkage*100)|int }}<span class="text-sm font-normal text-slate-500 ml-1">%</span></p>
     </div>
     {% if campaign.campaign_type == 'inbound' %}
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">NS objetivo</p>
-      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ (campaign.target_sl*100)|int }}%<span class="text-sm font-normal text-slate-400 ml-1">en {{ campaign.target_seconds|int }}s</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">NS objetivo</p>
+      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ (campaign.target_sl*100)|int }}%<span class="text-sm font-normal text-slate-500 ml-1">en {{ campaign.target_seconds|int }}s</span></p>
     </div>
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">Ocu. máxima</p>
-      <p class="text-2xl font-bold text-slate-800 mt-1">{{ (campaign.max_occupancy*100)|int }}<span class="text-sm font-normal text-slate-400 ml-1">%</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Ocu. máxima</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ (campaign.max_occupancy*100)|int }}<span class="text-sm font-normal text-slate-500 ml-1">%</span></p>
     </div>
     {% elif campaign.campaign_type == 'outbound' %}
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">Tasa contacto</p>
-      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ (campaign.contact_rate*100)|int }}<span class="text-sm font-normal text-slate-400 ml-1">%</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Tasa contacto</p>
+      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ (campaign.contact_rate*100)|int }}<span class="text-sm font-normal text-slate-500 ml-1">%</span></p>
     </div>
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">Registros</p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Registros</p>
       <p class="text-2xl font-bold text-slate-800 mt-1">{{ "{:,}".format(campaign.records_to_contact) }}</p>
     </div>
     {% else %}
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">Concurrencia</p>
-      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ campaign.max_concurrency }}<span class="text-sm font-normal text-slate-400 ml-1">chats/ag</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Concurrencia</p>
+      <p class="text-2xl font-bold text-indigo-600 mt-1">{{ campaign.max_concurrency }}<span class="text-sm font-normal text-slate-500 ml-1">chats/ag</span></p>
     </div>
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <p class="text-xs text-slate-500 uppercase tracking-wide">Resp. objetivo</p>
-      <p class="text-2xl font-bold text-slate-800 mt-1">{{ campaign.target_response_seconds|int }}<span class="text-sm font-normal text-slate-400 ml-1">seg</span></p>
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Resp. objetivo</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ campaign.target_response_seconds|int }}<span class="text-sm font-normal text-slate-500 ml-1">seg</span></p>
     </div>
     {% endif %}
   </div>
@@ -82,7 +84,7 @@
       Mapa de calor
     </button>
     <button onclick="switchTab('forecast')" id="btn-forecast"
-            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-600 hover:text-slate-800">
       {% if campaign.campaign_type == 'inbound' %}
       Dimensionado Erlang C
       {% elif campaign.campaign_type == 'outbound' %}
@@ -92,21 +94,21 @@
       {% endif %}
     </button>
     <button onclick="switchTab('volumes')" id="btn-volumes"
-            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-600 hover:text-slate-800">
       Volúmenes
     </button>
     <button onclick="switchTab('pronostico')" id="btn-pronostico"
-            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-600 hover:text-slate-800">
       Pronóstico
     </button>
     {% if campaign.campaign_type == 'inbound' %}
     <button onclick="switchTab('sensitivity')" id="btn-sensitivity"
-            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-600 hover:text-slate-800">
       Sensibilidad
     </button>
     {% endif %}
     <button onclick="switchTab('turnos-peru')" id="btn-turnos-peru"
-            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-500 hover:text-slate-700">
+            class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap border-transparent text-slate-600 hover:text-slate-800">
       Turnos Perú
     </button>
   </div>
@@ -123,7 +125,7 @@
           Volumen
         </button>
         <button onclick="setHeatMode('pct')" id="heat-btn-pct"
-                class="text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-700">
+                class="text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-600 hover:text-slate-800">
           % del pico
         </button>
       </div>
@@ -143,7 +145,7 @@
 
     <div class="bg-white rounded-xl border border-slate-200 p-4">
       <div id="heatmap-container" class="overflow-x-auto">
-        <p class="text-sm text-slate-400 text-center py-8">Ingresa volúmenes en la pestaña "Volúmenes" para ver el mapa de calor.</p>
+        <p class="text-sm text-slate-500 text-center py-8">Ingresa volúmenes en la pestaña "Volúmenes" para ver el mapa de calor.</p>
       </div>
     </div>
 
@@ -153,13 +155,21 @@
   </div>
 
   <div id="tab-turnos-peru" class="space-y-4 hidden">
+    <div id="peru-requires-calc" class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+      <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/>
+      </svg>
+      <span>Primero calcula la dotación en la pestaña <strong>Dimensionado</strong> para obtener el plan por intervalo.</span>
+    </div>
     <div class="bg-white rounded-xl border border-slate-200 p-4">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 class="text-sm font-semibold text-slate-700">Dimensionamiento de turnos (Perú)</h3>
-          <p class="text-xs text-slate-500">Basado en jornada máxima de 8h/día y 48h/semana (referencial).</p>
+          <h3 class="text-sm font-semibold text-slate-800">Dimensionamiento de turnos (Perú)</h3>
+          <p class="text-xs text-slate-500">Jornada máx. 8h/día · 48h/semana · 45 min almuerzo no computable (Ley 27671).</p>
         </div>
-        <button onclick="generatePeruShifts()" class="text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Generar turnos</button>
+        <button onclick="generatePeruShifts()" class="text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50" id="peru-btn">
+          Generar turnos
+        </button>
       </div>
     </div>
     <div id="peru-shifts-result" class="hidden"></div>
@@ -212,12 +222,12 @@
 
     <!-- Tabla de resultados -->
     <div id="calc-table-card" class="bg-white rounded-xl border border-slate-200 overflow-hidden hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Plan de dotación por intervalo</h3>
+      <div class="px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">Plan de dotación por intervalo</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+          <thead class="bg-slate-100 text-xs font-semibold text-slate-600 uppercase tracking-wide">
             <tr>
               <th class="text-left px-4 py-3">Intervalo</th>
               <th class="text-center px-4 py-3">Llamadas</th>
@@ -243,8 +253,8 @@
     <div class="grid md:grid-cols-2 gap-5">
 
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-          <h3 class="text-sm font-semibold text-slate-700">Perfil de volumen</h3>
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <h3 class="text-sm font-semibold text-slate-800">Perfil de volumen</h3>
           <div class="flex items-center gap-2">
             <button onclick="openImportModal('interval_volumes')"
                     class="flex items-center gap-1.5 text-xs px-2.5 py-1 border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
@@ -263,7 +273,7 @@
           </div>
         </div>
         <div class="p-4">
-          <p class="text-xs text-slate-400 mb-3">
+          <p class="text-xs text-slate-500 mb-3">
             {% if campaign.campaign_type == 'chat' %}Sesiones{% else %}Llamadas{% endif %}
             por intervalo de {{ campaign.interval_minutes }} min.
           </p>
@@ -287,8 +297,8 @@
       </div>
 
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="px-4 py-3 border-b border-slate-100">
-          <h3 class="text-sm font-semibold text-slate-700">Visualización</h3>
+        <div class="px-4 py-3 border-b border-slate-200">
+          <h3 class="text-sm font-semibold text-slate-800">Visualización</h3>
         </div>
         <div class="p-4">
           <div style="position:relative;height:240px;">
@@ -304,8 +314,8 @@
 
     <!-- Histórico -->
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Datos históricos <span class="text-xs font-normal text-slate-400">(para pronóstico)</span></h3>
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">Datos históricos <span class="text-xs font-normal text-slate-500">(para pronóstico)</span></h3>
         <button onclick="openImportModal('historical_volumes')"
                 class="flex items-center gap-1.5 text-xs px-2.5 py-1 border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -317,7 +327,7 @@
       </div>
       <div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
         <div class="p-4">
-          <p class="text-xs text-slate-400 mb-3">Ingresa volúmenes diarios históricos.</p>
+          <p class="text-xs text-slate-500 mb-3">Ingresa volúmenes diarios históricos.</p>
           <div id="hist-rows" class="space-y-2">
             <div class="hist-row flex gap-2">
               <input type="date" class="hist-date flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-400" value="{{ now_date }}">
@@ -333,7 +343,7 @@
           {% if historical %}
           <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Últimos registros</p>
           <table class="w-full text-sm">
-            <thead><tr><th class="text-left pb-2 text-xs text-slate-400">Fecha</th><th class="text-right pb-2 text-xs text-slate-400">Volumen</th></tr></thead>
+            <thead><tr><th class="text-left pb-2 text-xs text-slate-500">Fecha</th><th class="text-right pb-2 text-xs text-slate-500">Volumen</th></tr></thead>
             <tbody class="divide-y divide-slate-50">
               {% for h in historical[:10] %}
               <tr><td class="py-1.5 text-slate-600">{{ h.record_date }}</td><td class="py-1.5 text-right font-mono text-slate-700">{{ "{:,.0f}".format(h.total_volume) }}</td></tr>
@@ -341,7 +351,7 @@
             </tbody>
           </table>
           {% else %}
-          <div class="flex items-center justify-center h-full text-sm text-slate-400 py-8">Sin datos históricos aún.</div>
+          <div class="flex items-center justify-center h-full text-sm text-slate-500 py-8">Sin datos históricos aún.</div>
           {% endif %}
         </div>
       </div>
@@ -353,8 +363,8 @@
   ══════════════════════════════════════════════════════════════════════ -->
   <div id="tab-pronostico" class="space-y-4 hidden">
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Configuración del pronóstico</h3>
+      <div class="px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">Configuración del pronóstico</h3>
       </div>
       <div class="p-4 flex items-end gap-4 flex-wrap">
         <div>
@@ -386,8 +396,8 @@
   {% if campaign.campaign_type == 'inbound' %}
   <div id="tab-sensitivity" class="space-y-4 hidden">
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Análisis de sensibilidad — impacto de cambio de agentes</h3>
+      <div class="px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">Análisis de sensibilidad — impacto de cambio de agentes</h3>
       </div>
       <div class="p-4 flex items-end gap-4">
         <div>
@@ -448,11 +458,11 @@ function setHeatMode(mode) {
   document.getElementById('heat-btn-volume').className =
     mode === 'volume'
       ? 'text-xs px-3 py-1 rounded-md font-medium transition-colors bg-white text-indigo-600 shadow-sm'
-      : 'text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-700';
+      : 'text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-600 hover:text-slate-800';
   document.getElementById('heat-btn-pct').className =
     mode === 'pct'
       ? 'text-xs px-3 py-1 rounded-md font-medium transition-colors bg-white text-indigo-600 shadow-sm'
-      : 'text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-700';
+      : 'text-xs px-3 py-1 rounded-md font-medium transition-colors text-slate-600 hover:text-slate-800';
   buildHeatmap();
 }
 
@@ -460,7 +470,7 @@ function buildHeatmap() {
   const container = document.getElementById('heatmap-container');
   const n = LABELS.length;
   if (!n || currentVolumes.every(v => v === 0)) {
-    container.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">Ingresa volúmenes en la pestaña "Volúmenes" para ver el mapa de calor.</p>';
+    container.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">Ingresa volúmenes en la pestaña "Volúmenes" para ver el mapa de calor.</p>';
     document.getElementById('best-hours').classList.add('hidden');
     return;
   }
@@ -493,7 +503,7 @@ function buildHeatmap() {
 
   let html = '<table class="text-xs border-separate border-spacing-0.5 w-full">';
   // Header: horas
-  html += '<thead><tr><th class="w-10 text-slate-400 font-normal text-right pr-2 pb-1">Día \\ h</th>';
+  html += '<thead><tr><th class="w-10 text-slate-500 font-normal text-right pr-2 pb-1">Día \\ h</th>';
   for (let i = 0; i < n; i += step) {
     html += `<th class="text-center font-normal pb-1 ${i % (2*step) === 0 ? 'text-slate-500 font-semibold' : 'text-slate-300'}" style="min-width:36px">`;
     html += i % (2*step) === 0 ? LABELS[i] : '·';
@@ -618,8 +628,8 @@ function initVolChart() {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-        x: { ticks: { maxTicksLimit: 12, font: { size: 10 }, color: '#94a3b8' }, grid: { display: false } }
+        y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
+        x: { ticks: { maxTicksLimit: 12, font: { size: 10 }, color: '#64748b' }, grid: { display: false } }
       }
     }
   });
@@ -651,6 +661,9 @@ async function calculate() {
   lastResult = data;
   renderCalcResult(data);
   document.getElementById('export-btn').classList.remove('hidden');
+  // Unlock Turnos Perú tab
+  const peruHint = document.getElementById('peru-requires-calc');
+  if (peruHint) peruHint.classList.add('hidden');
 }
 
 function slClass(v) { return v>=80 ? 'text-emerald-600 font-medium' : v>=70 ? 'text-amber-600 font-medium' : 'text-red-600 font-bold'; }
@@ -671,22 +684,22 @@ function renderInbound(data) {
   document.getElementById('calc-kpis').innerHTML = `
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Total llamadas</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Total llamadas</p>
         <p class="text-2xl font-bold text-slate-800 mt-1">${(+s.total_calls||0).toLocaleString()}</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes brutos pico</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Agentes brutos pico</p>
         <p class="text-2xl font-bold text-indigo-600 mt-1">${s.peak_gross_agents||0}</p>
-        <p class="text-xs text-slate-400">Intervalo ${s.peak_interval||''}</p>
+        <p class="text-xs text-slate-500">Intervalo ${s.peak_interval||''}</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">NS promedio</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">NS promedio</p>
         <p class="text-2xl font-bold ${slC} mt-1">${(+s.average_service_level||0).toFixed(1)}%</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Ocupación prom.</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Ocupación prom.</p>
         <p class="text-2xl font-bold ${ocC} mt-1">${(+s.average_occupancy||0).toFixed(1)}%</p>
-        <p class="text-xs text-slate-400">ASA: ${(+s.average_asa_seconds||0).toFixed(0)}s</p>
+        <p class="text-xs text-slate-500">ASA: ${(+s.average_asa_seconds||0).toFixed(0)}s</p>
       </div>
     </div>`;
   document.getElementById('calc-kpis').classList.remove('hidden');
@@ -740,13 +753,13 @@ function renderInbound(data) {
     return `<tr class="hover:bg-slate-50 transition-colors">
       <td class="px-4 py-2 font-medium text-slate-700">${r.interval}</td>
       <td class="px-4 py-2 text-center text-slate-600">${(+r.calls||0).toLocaleString()}</td>
-      <td class="px-4 py-2 text-center font-mono text-slate-400 text-xs">${r.traffic_intensity||0}</td>
+      <td class="px-4 py-2 text-center font-mono text-slate-600 text-xs">${r.traffic_intensity||0}</td>
       <td class="px-4 py-2 text-center text-slate-600">${r.productive_agents||0}</td>
       <td class="px-4 py-2 text-center font-bold text-indigo-600">${r.gross_agents||0}</td>
       <td class="px-4 py-2 text-center ${slClass(sl)}">${sl.toFixed(1)}%</td>
       <td class="px-4 py-2 text-center text-slate-500">${r.asa_seconds||0}s</td>
       <td class="px-4 py-2 text-center ${ocClass(occ)}">${occ.toFixed(1)}%</td>
-      <td class="px-4 py-2 text-center text-slate-400">${r.trunks_needed||0}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${r.trunks_needed||0}</td>
     </tr>`;
   }).join('');
 }
@@ -756,18 +769,18 @@ function renderOutbound(data) {
   document.getElementById('calc-kpis').innerHTML = `
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes productivos</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Agentes productivos</p>
         <p class="text-2xl font-bold text-indigo-600 mt-1">${r.productive_agents||0}</p>
-        <p class="text-xs text-slate-400">Modo: ${r.dial_mode||''}</p>
+        <p class="text-xs text-slate-500">Modo: ${r.dial_mode||''}</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Contactos persona correcta</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Contactos persona correcta</p>
         <p class="text-2xl font-bold text-slate-800 mt-1">${(+r.right_party_contacts||0).toLocaleString()}</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Abandono estimado</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Abandono estimado</p>
         <p class="text-2xl font-bold ${ok?'text-emerald-600':'text-red-600'} mt-1">${(+r.estimated_abandonment_pct||0).toFixed(2)}%</p>
-        <p class="text-xs text-slate-400">Máx: ${r.max_abandonment_pct}%</p>
+        <p class="text-xs text-slate-500">Máx: ${r.max_abandonment_pct}%</p>
       </div>
     </div>`;
   document.getElementById('calc-kpis').classList.remove('hidden');
@@ -792,19 +805,19 @@ function renderChat(data) {
   document.getElementById('calc-kpis').innerHTML = `
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes productivos</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Agentes productivos</p>
         <p class="text-2xl font-bold text-indigo-600 mt-1">${s.productive_agents||0}</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Agentes brutos</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Agentes brutos</p>
         <p class="text-2xl font-bold text-slate-800 mt-1">${s.gross_agents||0}</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Nivel servicio</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Nivel servicio</p>
         <p class="text-2xl font-bold ${slC} mt-1">${((+s.service_level||0)*100).toFixed(1)}%</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 uppercase tracking-wide">Sesiones simult.</p>
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Sesiones simult.</p>
         <p class="text-2xl font-bold text-slate-800 mt-1">${s.avg_concurrent_sessions||0}</p>
       </div>
     </div>`;
@@ -859,7 +872,7 @@ function renderChat(data) {
     return `<tr class="hover:bg-slate-50 transition-colors">
       <td class="px-4 py-2 font-medium text-slate-700">${r.interval}</td>
       <td class="px-4 py-2 text-center text-slate-600">${(+r.sessions_per_interval || 0).toFixed(0)}</td>
-      <td class="px-4 py-2 text-center font-mono text-slate-400 text-xs">${r.traffic_intensity || 0}</td>
+      <td class="px-4 py-2 text-center font-mono text-slate-600 text-xs">${r.traffic_intensity || 0}</td>
       <td class="px-4 py-2 text-center text-slate-600">${r.productive_agents || 0}</td>
       <td class="px-4 py-2 text-center font-bold text-indigo-600">${r.gross_agents || 0}</td>
       <td class="px-4 py-2 text-center ${slClass(sl)}">${sl.toFixed(1)}%</td>
@@ -925,15 +938,15 @@ async function generatePeruShifts() {
     ${dayTypeLabel ? `<p class="text-xs font-medium text-indigo-600 mb-3 uppercase tracking-wide">Tipo de día: ${dayTypeLabel}</p>` : ''}
     <!-- KPI cards -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Pico agentes</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.peak_agents}</p></div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Líneas de turno</p><p class="text-2xl font-bold text-indigo-600 mt-1">${data.summary.total_shift_lines}</p></div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Pool sugerido</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.suggested_fte_pool}</p></div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500 uppercase tracking-wide">Horas/semana</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.weekly_hours_per_agent}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Pico agentes</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.peak_agents}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Líneas de turno</p><p class="text-2xl font-bold text-indigo-600 mt-1">${data.summary.total_shift_lines}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Pool sugerido</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.suggested_fte_pool}</p></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Horas/semana</p><p class="text-2xl font-bold text-slate-800 mt-1">${data.summary.weekly_hours_per_agent}</p></div>
     </div>
 
     <!-- Demand vs Coverage chart -->
     <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <h4 class="text-sm font-semibold text-slate-700 mb-3">Demanda vs Cobertura por hora</h4>
+      <h4 class="text-sm font-semibold text-slate-800 mb-3">Demanda vs Cobertura por hora</h4>
       <canvas id="shift-coverage-chart" height="100"></canvas>
     </div>
 
@@ -1000,7 +1013,7 @@ async function generatePeruShifts() {
           const bt  = ai > 0 ? 'border-top:1px solid rgba(226,232,240,0.9);' : '';
           const lbl = ai === 0
             ? `<span style="font-weight:600;color:#374151;font-size:11px;">${s.name}</span>`
-            : `<span style="color:#94a3b8;font-size:10px;">ag.${ai+1}</span>`;
+            : `<span style="color:#64748b;font-size:10px;">ag.${ai+1}</span>`;
           body += `<div style="height:22px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;${bt}">${lbl}</div>`;
         }
         body += `</div>`;
@@ -1044,7 +1057,7 @@ async function generatePeruShifts() {
 
       return `<div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <h4 class="text-sm font-semibold text-slate-700">Linea de tiempo de turnos</h4>
+          <h4 class="text-sm font-semibold text-slate-800">Linea de tiempo de turnos</h4>
           <div style="display:flex;gap:10px;font-size:11px;color:#6b7280;align-items:center;">${legend}</div>
         </div>
         <div style="display:flex;margin-bottom:4px;">
@@ -1058,7 +1071,7 @@ async function generatePeruShifts() {
     <!-- Detail table -->
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-xs text-slate-500 uppercase">
+        <thead class="bg-slate-100 text-xs text-slate-500 uppercase">
           <tr>
             <th class="text-left px-4 py-3">Turno</th>
             <th class="text-center px-4 py-3">Inicio</th>
@@ -1078,7 +1091,7 @@ async function generatePeruShifts() {
               const first = positions[0], last = positions[positions.length-1];
               lunchCell = first === last
                 ? `${first} (${s.lunch_minutes} min)`
-                : `${first}–${last} <span class="text-slate-400 text-xs">escalonado</span>`;
+                : `${first}–${last} <span class="text-slate-500 text-xs">escalonado</span>`;
             }
             return `<tr>
               <td class="px-4 py-2 font-medium">
@@ -1087,7 +1100,7 @@ async function generatePeruShifts() {
                 </span>
               </td>
               <td class="px-4 py-2 text-center">${s.crosses_midnight ? '<span title="Inicia día anterior">↩ </span>' : ''}${s.start}</td>
-              <td class="px-4 py-2 text-center">${s.end}${s.crosses_midnight ? ' <span class="text-xs text-slate-400">+1d</span>' : ''}</td>
+              <td class="px-4 py-2 text-center">${s.end}${s.crosses_midnight ? ' <span class="text-xs text-slate-500">+1d</span>' : ''}</td>
               <td class="px-4 py-2 text-center font-bold text-indigo-600">${s.agents}</td>
               <td class="px-4 py-2 text-center text-sm">${lunchCell}</td>
             </tr>`;
@@ -1151,18 +1164,18 @@ async function runForecast() {
   const data = await r.json();
   const rows = (data.daily_forecasts||[]).map(d =>
     `<tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-4 py-2 text-center text-slate-400">${d.day}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${d.day}</td>
       <td class="px-4 py-2 font-medium text-slate-700">${d.day_name}</td>
       <td class="px-4 py-2 text-center font-bold text-indigo-600 font-mono">${(+d.forecast_volume||0).toLocaleString()}</td>
-      <td class="px-4 py-2 text-center text-slate-400">${d.dow_factor}</td>
+      <td class="px-4 py-2 text-center text-slate-600">${d.dow_factor}</td>
     </tr>`).join('');
   document.getElementById('forecast-result').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Pronóstico — base ${(+data.base_daily_forecast||0).toLocaleString()} / día · ${data.method}</h3>
+      <div class="px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">Pronóstico — base ${(+data.base_daily_forecast||0).toLocaleString()} / día · ${data.method}</h3>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+        <thead class="bg-slate-100 text-xs font-semibold text-slate-600 uppercase tracking-wide">
           <tr><th class="text-center px-4 py-3">Día</th><th class="text-left px-4 py-3">Día semana</th><th class="text-center px-4 py-3">Volumen</th><th class="text-center px-4 py-3">Factor DoW</th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100">${rows}</tbody>
@@ -1187,9 +1200,9 @@ async function runSensitivity() {
     </tr>`).join('');
   document.getElementById('sensitivity-result').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100"><h3 class="text-sm font-semibold text-slate-700">Sensibilidad — ${document.getElementById('sens-calls').value} llamadas / ${INTERVAL_MINUTES}min</h3></div>
+      <div class="px-4 py-3 border-b border-slate-200"><h3 class="text-sm font-semibold text-slate-800">Sensibilidad — ${document.getElementById('sens-calls').value} llamadas / ${INTERVAL_MINUTES}min</h3></div>
       <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+        <thead class="bg-slate-100 text-xs font-semibold text-slate-600 uppercase tracking-wide">
           <tr><th class="text-center px-4 py-3">Ag. Prod.</th><th class="text-center px-4 py-3">Ag. Brutos</th><th class="text-center px-4 py-3">Nivel Servicio</th><th class="text-center px-4 py-3">ASA</th><th class="text-center px-4 py-3">Ocupación</th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100">${rows}</tbody>
@@ -1257,7 +1270,7 @@ async function runBDImport() {
   if (!tmplId) return;
   const dayType = document.getElementById('import-dt-sel').value;
   const statusEl = document.getElementById('import-modal-status');
-  statusEl.className = 'text-sm text-slate-400';
+  statusEl.className = 'text-sm text-slate-500';
   statusEl.textContent = 'Importando…';
 
   const r = await fetch(`/api/templates/${tmplId}/run`, {
@@ -1290,10 +1303,10 @@ async function runBDImport() {
 <!-- Importar desde BD modal -->
 <div id="import-bd-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
       <h3 class="font-semibold text-slate-800" id="import-modal-title">Importar desde BD</h3>
       <button onclick="document.getElementById('import-bd-modal').classList.add('hidden')"
-              class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              class="text-slate-500 hover:text-slate-700 text-xl leading-none">×</button>
     </div>
     <div class="p-5 space-y-4">
       <div>
@@ -1301,7 +1314,7 @@ async function runBDImport() {
         <select id="import-tmpl-sel"
                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
         </select>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 mt-1">
           Gestiona plantillas en
           <a href="/connectors" class="text-brand hover:underline">Conectores BD</a>
         </p>

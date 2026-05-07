@@ -26,6 +26,20 @@ app.secret_key = "wfm-standalone-secret-2024"
 init_db()
 
 
+@app.template_filter("format_aht")
+def format_aht_filter(seconds):
+    """Format seconds as '3:00 min' or '45s'."""
+    s = int(seconds)
+    m = s // 60
+    r = s % 60
+    if m == 0:
+        return f"{r}s"
+    elif r == 0:
+        return f"{m} min"
+    else:
+        return f"{m}:{r:02d} min"
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def get_campaign_or_404(campaign_id: int):
@@ -54,14 +68,18 @@ def interval_labels(interval_minutes: int) -> list:
 @app.route("/")
 def index():
     db = SessionLocal()
-    campaigns = db.query(Campaign).filter(Campaign.is_active == True).order_by(Campaign.created_at.desc()).all()
+    type_filter = request.args.get("type")
+    query = db.query(Campaign).filter(Campaign.is_active == True)
+    if type_filter in ("inbound", "outbound", "chat"):
+        query = query.filter(Campaign.campaign_type == type_filter)
+    campaigns = query.order_by(Campaign.created_at.desc()).all()
     stats = {
         "inbound": db.query(Campaign).filter(Campaign.campaign_type == "inbound", Campaign.is_active == True).count(),
         "outbound": db.query(Campaign).filter(Campaign.campaign_type == "outbound", Campaign.is_active == True).count(),
         "chat": db.query(Campaign).filter(Campaign.campaign_type == "chat", Campaign.is_active == True).count(),
     }
     db.close()
-    return render_template("index.html", campaigns=campaigns, stats=stats)
+    return render_template("index.html", campaigns=campaigns, stats=stats, type_filter=type_filter)
 
 
 # ─── Campaigns CRUD ───────────────────────────────────────────────────────────
